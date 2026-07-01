@@ -1,19 +1,15 @@
 // ================================================================
-// test-main.js - 간단한 연결 테스트용
+// test-main.js - Tilda 연결 테스트용
 // ================================================================
 
 console.log('✅ test-main.js loaded!');
 
-// 간단한 테스트 함수
 function testGraphic() {
     return '<div style="padding:20px;background:#27ae60;color:white;border-radius:12px;text-align:center;font-size:24px;">✅ 연결 성공!<br><span style="font-size:14px;">GitHub → Tilda 연결 테스트 완료</span></div>';
 }
 
-// renderGraphic 함수 (호환성 유지)
 function renderGraphic(jsonData) {
     console.log('📊 renderGraphic called with:', jsonData);
-    
-    // 간단한 그래프 HTML 반환
     return '<div style="padding:20px;background:#3498db;color:white;border-radius:12px;text-align:center;">' +
            '<h3>📊 그래픽 엔진 연결됨</h3>' +
            '<p>JSON 데이터: ' + escapeHtml(String(jsonData).substring(0, 100)) + '</p>' +
@@ -23,7 +19,6 @@ function renderGraphic(jsonData) {
            '</div></div>';
 }
 
-// escapeHtml (간단한 버전)
 function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/[&<>]/g, function(m) {
@@ -34,9 +29,7 @@ function escapeHtml(str) {
     });
 }
 
-// 전역 노출
 window.testGraphic = testGraphic;
 window.renderGraphic = renderGraphic;
 
 console.log('✅ test functions registered globally');
-console.log('🔍 Try: testGraphic() or renderGraphic("test")');
