@@ -1,686 +1,1702 @@
-// ================================================================
-// GRAPHICS ENGINE v3.0 - main.js (순수 JavaScript)
-// ================================================================
+// ============================================================
+// T123-1 + T123-2 + T123-3 + T123-4 통합 (GitHub용 - 완전한 버전)
+// ============================================================
 
-console.log('✅ main.js loading...');
-
-var CONFIG = {
-    COLORS: ['#3498db', '#e74c3c', '#27ae60', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#2c3e50', '#7f8c8d', '#16a085', '#d35400', '#c0392b'],
-    CHART: { responsive: true, maintainAspectRatio: false, height: '400px' },
-    GRID: { color: '#e0e0e0', lineWidth: 0.5 },
-    PADDING: 50,
-    VERSION: '3.0.0'
+var LANG = {
+  enterNumber: "Enter Starting Number",
+  enterSub: "Enter the question number to begin",
+  rangeInfo: "Range: 1 ~ ",
+  startBtn: "▶ START",
+  freshHint: "Enter a number and click START to begin a new session or click Resume above to continue where you left off",
+  resumeTitle: "Resume from where you left off",
+  resumeDetail: "{answered}/{total} answered · {time}",
+  resumeHint: "Click to continue your previous session",
+  qPrefix: "Question",
+  of: "/",
+  originalPrefix: "(Original #",
+  originalSuffix: ")",
+  prevBtn: "◀ PREV",
+  skipBtn: "SKIP",
+  nextBtn: "NEXT ▶",
+  submitBtn: "SUBMIT",
+  quitBtn: "✕ QUIT",
+  reviewModePrefix: "Review Mode: ",
+  reviewModeSuffix: " questions (Wrong/Skipped/Unanswered)",
+  exitReview: "EXIT REVIEW",
+  resultTitle: "📊 RESULT",
+  correctLabel: "✅ CORRECT",
+  accuracyLabel: "🎯 ACCURACY",
+  resultClickLabel: "Results (Click to move)",
+  retryBtn: "🔄 RETRY",
+  reviewBtn: "📝 REVIEW",
+  closeBtn: "✕ CLOSE",
+  reviewModalTitle: "📝 REVIEW",
+  reviewModalSubtitle: "Wrong / Skipped / Unanswered",
+  retryWrongOnlyBtn: "🔄 RETRY WRONG ONLY",
+  reviewQuestions: "Review Questions:",
+  wrongCount: "Wrong:",
+  skippedCount: "Skipped:",
+  unansweredCount: "Unanswered:",
+  questionPrefix: "Question",
+  originalPrefixShort: "(Original #)",
+  statusWrong: "WRONG",
+  statusSkipped: "SKIPPED",
+  statusUnanswered: "UNANSWERED",
+  statusNotAnswered: "Status: You did not answer this question.",
+  correctAnswerLabel: "Correct Answer:",
+  explanationLabel: "Explanation",
+  yourAnswerLabel: "(YOUR ANSWER)",
+  correctAnswer: "✅ CORRECT! Answer:",
+  wrongAnswer: "❌ WRONG. Answer:",
+  noExplanation: "No explanation available.",
+  loadError: "Failed to load questions:",
+  allCorrect: "🎉 Congratulations! All correct!",
+  perfectReview: "✨ Perfect! No questions to review!",
+  confirmExit: "Return to main menu. Progress will not be saved.",
+  reviewModeQuestionPrefix: "Review Question",
+  loading: "Loading...",
+  loadingQuestions: "Loading questions from ",
+  rangeText: "Range: 1 ~ "
 };
 
-function escapeHtml(str) {
-    if (str === null || str === undefined) return "";
-    if (typeof str !== 'string') str = String(str);
-    return str.replace(/[&<>]/g, function(m) {
-        if (m === '&') return '&amp;';
-        if (m === '<') return '&lt;';
-        if (m === '>') return '&gt;';
-        return m;
-    });
-}
-
-function safeParseJSON(data) {
-    if (data === null || data === undefined) return null;
-    if (typeof data === 'object') return data;
-    var str = String(data);
-    if (str.trim() === '') return null;
-    if (str === 'null' || str === 'undefined') return null;
-    try { return JSON.parse(str); } catch(e) {}
-    var cleaned = str;
-    for (var i = 0; i < 5; i++) {
-        try {
-            cleaned = cleaned.replace(/\\"/g, '"');
-            cleaned = cleaned.replace(/\\\\/g, '\\');
-            if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
-                cleaned = cleaned.slice(1, -1);
-            }
-            if (cleaned.startsWith("'") && cleaned.endsWith("'")) {
-                cleaned = cleaned.slice(1, -1);
-            }
-            var result = JSON.parse(cleaned);
-            if (typeof result === 'string') { cleaned = result; continue; }
-            return result;
-        } catch(e) {}
-    }
-    try {
-        var fixed = str;
-        fixed = fixed.replace(/\\\//g, '/');
-        fixed = fixed.replace(/\\\\/g, '\\');
-        fixed = fixed.replace(/\\"/g, '"');
-        if (fixed.startsWith('"') && fixed.endsWith('"')) {
-            fixed = fixed.slice(1, -1);
-        }
-        if (fixed.startsWith("'") && fixed.endsWith("'")) {
-            fixed = fixed.slice(1, -1);
-        }
-        return JSON.parse(fixed);
-    } catch(e) {}
-    try {
-        var manual = str;
-        manual = manual.replace(/'/g, '"');
-        manual = manual.replace(/\\/g, '');
-        manual = manual.replace(/""/g, '"');
-        if (manual.startsWith('"') && manual.endsWith('"')) {
-            manual = manual.slice(1, -1);
-        }
-        return JSON.parse(manual);
-    } catch(e) {
-        console.warn('⚠️ safeParseJSON: All parsing attempts failed');
-        return null;
-    }
-}
-
-function parseFunction(equation) {
-    if (!equation || typeof equation !== 'string') {
-        return function(x) { return 0; };
-    }
-    var expr = equation
-        .replace(/\^/g, '**')
-        .replace(/sin\(/g, 'Math.sin(')
-        .replace(/cos\(/g, 'Math.cos(')
-        .replace(/tan\(/g, 'Math.tan(')
-        .replace(/log10\(/g, 'Math.log10(')
-        .replace(/log2\(/g, 'Math.log2(')
-        .replace(/ln\(/g, 'Math.log(')
-        .replace(/log\(/g, 'Math.log10(')
-        .replace(/sqrt\(/g, 'Math.sqrt(')
-        .replace(/cbrt\(/g, 'Math.cbrt(')
-        .replace(/abs\(/g, 'Math.abs(')
-        .replace(/exp\(/g, 'Math.exp(')
-        .replace(/pi/g, 'Math.PI')
-        .replace(/euler/g, 'Math.E')
-        .replace(/\[S\]/g, 'S')
-        .replace(/\[s\]/g, 'S');
-    try {
-        return new Function('x', 'return ' + expr + ';');
-    } catch(e) {
-        console.warn('⚠️ parseFunction error:', e.message);
-        return function(x) { return 0; };
-    }
-}
-
-function toPixelX(x, xMin, xMax, canvasWidth, padding) {
-    padding = padding || 50;
-    var plotW = canvasWidth - 2 * padding;
-    return padding + ((x - xMin) / (xMax - xMin)) * plotW;
-}
-
-function toPixelY(y, yMin, yMax, canvasHeight, padding) {
-    padding = padding || 50;
-    var plotH = canvasHeight - 2 * padding;
-    return padding + plotH - ((y - yMin) / (yMax - yMin)) * plotH;
-}
-
+var API_URL = "https://script.google.com/macros/s/AKfycbx-S88kC_Ii_MxbibHmmHQYK_ITc1U9jphAxJ-uV0NSBGMFUidA3ItBE0niKhUyW32oMA/exec";
+var STORAGE_KEY = 'quiz_progress_main';
+var TOTAL_CACHE_KEY = 'quiz_total_questions';
+var QUESTIONS_PER_SET = 120;
+var TOTAL_QUESTIONS = 0;
+var masterQuestions = [];
+var currentQuestions = [];
+var userAnswers = [];
+var currentIndex = 0;
+var correctCount = 0;
+var isReviewMode = false;
+var originalQuestions = [];
+var currentStartNumber = 1;
+var autoSaveInterval = null;
 var chartInstances = {};
+var DOM = {};
 
-function createChart(chartId, config) {
-    var canvas = document.getElementById(chartId);
-    if (!canvas) { console.warn('⚠️ Canvas not found:', chartId); return null; }
-    if (typeof Chart === 'undefined') { console.warn('⚠️ Chart.js not loaded'); return null; }
-    if (chartInstances[chartId]) {
-        chartInstances[chartId].destroy();
-        delete chartInstances[chartId];
-    }
-    try {
-        var instance = new Chart(canvas, config);
-        chartInstances[chartId] = instance;
-        return instance;
-    } catch(e) {
-        console.warn('⚠️ Chart creation failed:', e.message);
-        return null;
-    }
+function updateSplash(percent, text) {
+  var bar = document.getElementById('splashBar');
+  var status = document.getElementById('splashStatus');
+  if (bar) bar.style.width = Math.min(100, percent) + '%';
+  if (status) status.textContent = text || 'Loading...';
+  console.log('Splash: ' + percent + '% - ' + text);
 }
 
-function renderWithDelay(chartId, renderFn, delay) {
-    delay = delay || 150;
+function showSplashError(msg) {
+  var errorEl = document.getElementById('splashError');
+  var retryBtn = document.getElementById('splashRetry');
+  if (errorEl) { errorEl.style.display = 'block'; errorEl.textContent = '▲ ' + msg; }
+  if (retryBtn) retryBtn.style.display = 'inline-block';
+}
+
+function hideSplash() {
+  var overlay = document.getElementById('splashOverlay');
+  if (overlay) {
+    overlay.style.opacity = '0';
     setTimeout(function() {
-        try { renderFn(); } catch(e) { console.warn('⚠️ Render failed:', e.message); }
-    }, delay);
+      overlay.style.display = 'none';
+      document.getElementById('mainContainer').style.display = 'block';
+    }, 500);
+  }
 }
 
-var GRAPHIC_REGISTRY = {};
-
-function registerRenderer(type, renderFn) {
-    GRAPHIC_REGISTRY[type] = renderFn;
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  if (typeof str !== 'string') str = String(str);
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
 }
 
-function getRenderer(type) { return GRAPHIC_REGISTRY[type] || null; }
+function getAnswerLetter(num) {
+  var n = parseInt(num);
+  if (isNaN(n)) return num;
+  var letters = {1:'A',2:'B',3:'C',4:'D'};
+  return letters[n] || num;
+}
 
-function getSupportedTypes() { return Object.keys(GRAPHIC_REGISTRY); }
+function getValidChoiceKeys(choices) {
+  return Object.keys(choices).filter(function(key) {
+    var val = choices[key];
+    if (typeof val === 'string') return val && val.trim() !== "";
+    return val !== null && val !== undefined && val !== "";
+  }).sort(function(a, b) { return Number(a) - Number(b); });
+}
 
-// ================================================================
-// SCATTER-ONLY
-// ================================================================
-function renderScatterOnly(parsed) {
-    if (!parsed.points || parsed.points.length === 0) {
-        return '<div style="padding:10px;color:#999;">No points data</div>';
+function hasRealChoices(q) {
+  if (!q || !q.choices) return false;
+  return Object.values(q.choices).some(function(v) {
+    if (!v || typeof v !== 'string') return false;
+    var trimmed = v.trim();
+    return trimmed !== "" && trimmed.toLowerCase() !== 'no options' && trimmed.toLowerCase() !== 'no options.' && trimmed !== 'No options';
+  });
+}
+
+function isSubjectiveQuestion(q) {
+  if (!q || !q.choices) return true;
+  return !hasRealChoices(q);
+}
+
+function randomizeChoicesOnly(q) {
+  if (!q || !q.choices) return q;
+  if (!hasRealChoices(q)) return q;
+  try {
+    var validEntries = Object.entries(q.choices).filter(function(item) {
+      var k = item[0], v = item[1];
+      if (typeof v === 'string') return v && v.trim() !== "";
+      return v !== null && v !== undefined && v !== "";
+    }).map(function(item) {
+      var k = item[0], v = item[1];
+      return { k: parseInt(k), v: String(v) };
+    });
+    var shuffled = validEntries.slice();
+    for (var i = shuffled.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var temp = shuffled[i];
+      shuffled[i] = shuffled[j];
+      shuffled[j] = temp;
     }
-    var chartId = 'chart_' + Math.random().toString(36).substr(2, 9);
-    var html = '<div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;"><canvas id="' + chartId + '" style="max-height:400px;width:100%;"></canvas></div>';
+    var newChoices = {};
+    shuffled.forEach(function(c, idx) { newChoices[idx + 1] = c.v; });
+    var originalAns = parseInt(q.answer);
+    var correctIdx = shuffled.findIndex(function(c) { return c.k == originalAns; });
+    return {
+      ...q,
+      choices: newChoices,
+      answer: (correctIdx + 1).toString()
+    };
+  } catch(e) {
+    console.error("Randomize error:", e);
+    return q;
+  }
+}
+
+function updateProgressDisplay() {
+  var total = currentQuestions.length || 1;
+  var percent = ((currentIndex + 1) / total) * 100;
+  if (DOM.quizProgressBar) DOM.quizProgressBar.style.width = percent + '%';
+  if (DOM.progressText) {
+    DOM.progressText.style.display = 'inline-block';
+    DOM.progressText.innerText = (currentIndex + 1) + ' / ' + total;
+  }
+}
+
+function showLoadingOverlay(message) {
+  var overlay = document.createElement('div');
+  overlay.id = 'loadingOverlay';
+  overlay.className = 'loading-overlay';
+  overlay.innerHTML = '<div class="loading-spinner"></div><h3>' + message + '</h3>';
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function hideLoadingOverlay() {
+  var overlay = document.getElementById('loadingOverlay');
+  if (overlay) overlay.remove();
+}
+
+function saveProgress() {
+  try {
+    var data = {
+      currentQuestions: currentQuestions,
+      userAnswers: userAnswers,
+      currentIndex: currentIndex,
+      correctCount: correctCount,
+      currentStartNumber: currentStartNumber,
+      isReviewMode: isReviewMode,
+      originalQuestions: originalQuestions,
+      masterQuestions: masterQuestions,
+      timestamp: new Date().toISOString()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    return true;
+  } catch(e) {
+    console.warn('Save failed:', e);
+    return false;
+  }
+}
+
+function loadProgress() {
+  try {
+    var raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) {
+    console.warn('Load failed:', e);
+    return null;
+  }
+}
+
+function clearProgress() {
+  localStorage.removeItem(STORAGE_KEY);
+  if (autoSaveInterval) {
+    clearInterval(autoSaveInterval);
+    autoSaveInterval = null;
+  }
+}
+
+function startAutoSave() {
+  if (autoSaveInterval) clearInterval(autoSaveInterval);
+  autoSaveInterval = setInterval(function() {
+    saveProgress();
+  }, 5000);
+}
+
+var ORIGINAL_API_URL = "https://script.google.com/macros/s/AKfycbx-S88kC_Ii_MxbibHmmHQYK_ITc1U9jphAxJ-uV0NSBGMFUidA3ItBE0niKhUyW32oMA/exec";
+
+async function detectTotalQuestions() {
+  localStorage.removeItem(TOTAL_CACHE_KEY);
+  console.log('Cache cleared, fetching fresh data...');
+  
+  try {
+    updateSplash(30, 'Checking total questions...');
+    var url = ORIGINAL_API_URL + '?total=true&_=' + Date.now();
+    console.log('📡 Requesting total (direct):', url);
     
-    function renderFn() {
-        var normalizedPoints = parsed.points.map(function(p) {
-            if (Array.isArray(p)) return { x: p[0], y: p[1] };
-            return p;
+    var response = await fetch(url);
+    console.log('📡 Response status:', response.status);
+    
+    if (!response.ok) {
+      throw new Error('HTTP ' + response.status);
+    }
+    
+    var text = await response.text();
+    console.log('📡 Response text (first 200 chars):', text.substring(0, 200));
+    
+    if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+      console.error('❌ Received HTML. Check Apps Script deployment.');
+      throw new Error('HTML response - check Apps Script URL');
+    }
+    
+    var data = JSON.parse(text);
+    console.log('📡 Total API response:', JSON.stringify(data));
+    
+    var total = 0;
+    if (data && typeof data === 'object') {
+      if (typeof data.total === 'number') total = data.total;
+      else if (typeof data.count === 'number') total = data.count;
+      else if (typeof data.length === 'number') total = data.length;
+    }
+    
+    if (total > 0) {
+      TOTAL_QUESTIONS = total;
+      localStorage.setItem(TOTAL_CACHE_KEY, String(TOTAL_QUESTIONS));
+      console.log('✅ Total questions: ' + TOTAL_QUESTIONS);
+      return TOTAL_QUESTIONS;
+    }
+    
+    console.warn('⚠️ Could not detect total, using fallback: 360');
+  } catch(e) {
+    console.error('❌ Total API call failed:', e.message);
+  }
+  
+  TOTAL_QUESTIONS = 360;
+  localStorage.setItem(TOTAL_CACHE_KEY, String(TOTAL_QUESTIONS));
+  return TOTAL_QUESTIONS;
+}
+
+function updateSetSelector() {
+  var setSelector = document.getElementById('setSelector');
+  if (!setSelector) return;
+  
+  while (setSelector.options.length > 0) {
+    setSelector.remove(0);
+  }
+  
+  var totalQuestions = TOTAL_QUESTIONS > 0 ? TOTAL_QUESTIONS : 360;
+  var totalSets = Math.ceil(totalQuestions / QUESTIONS_PER_SET);
+  console.log('📊 Total Sets: ' + totalSets + ' (Questions: ' + totalQuestions + ')');
+  
+  for (var i = 1; i <= totalSets; i++) {
+    var start = (i - 1) * QUESTIONS_PER_SET + 1;
+    var end = Math.min(i * QUESTIONS_PER_SET, totalQuestions);
+    var option = document.createElement('option');
+    option.value = i;
+    option.textContent = 'Set ' + i + ' (Questions ' + start + '-' + end + ')';
+    setSelector.appendChild(option);
+  }
+  
+  var maxStartNumber = Math.max(1, totalQuestions - QUESTIONS_PER_SET + 1);
+  if (DOM.maxNumberDisplay) {
+    DOM.maxNumberDisplay.innerText = maxStartNumber.toLocaleString();
+  }
+  if (DOM.startNumberInput) {
+    DOM.startNumberInput.placeholder = '1 ~ ' + maxStartNumber.toLocaleString();
+    DOM.startNumberInput.max = maxStartNumber;
+  }
+  
+  if (setSelector.options.length > 0) {
+    setSelector.value = '1';
+  }
+  if (DOM.startNumberInput) {
+    DOM.startNumberInput.value = '1';
+  }
+}
+
+async function load50Questions(uiStartNumber) {
+  if (TOTAL_QUESTIONS === 0) await detectTotalQuestions();
+  try {
+    var url = ORIGINAL_API_URL + '?start=' + uiStartNumber + '&limit=' + QUESTIONS_PER_SET;
+    console.log('📡 Requesting questions (direct):', url);
+    
+    var response = await fetch(url);
+    console.log('📡 Response status:', response.status);
+    
+    if (!response.ok) {
+      throw new Error('HTTP ' + response.status);
+    }
+    
+    var text = await response.text();
+    console.log('📡 Response text (first 200 chars):', text.substring(0, 200));
+    
+    if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+      console.error('❌ Received HTML. Check Apps Script deployment.');
+      throw new Error('HTML response - check Apps Script URL');
+    }
+    
+    var data = JSON.parse(text);
+    console.log('📡 Response type:', typeof data);
+    console.log('📡 Is array?', Array.isArray(data));
+    
+    var questionsData = [];
+    
+    if (Array.isArray(data)) {
+      questionsData = data;
+      console.log('✅ Data is direct array, length:', questionsData.length);
+    } else if (data && typeof data === 'object') {
+      if (Array.isArray(data.data)) {
+        questionsData = data.data;
+        console.log('✅ Found data.data array, length:', questionsData.length);
+      } else if (Array.isArray(data.questions)) {
+        questionsData = data.questions;
+        console.log('✅ Found data.questions array, length:', questionsData.length);
+      } else if (Array.isArray(data.items)) {
+        questionsData = data.items;
+        console.log('✅ Found data.items array, length:', questionsData.length);
+      } else {
+        var keys = Object.keys(data);
+        if (keys.length > 0) {
+          questionsData = keys.map(function(key) {
+            var item = data[key];
+            if (typeof item === 'object' && item !== null) {
+              item._key = key;
+              return item;
+            }
+            return { question: String(item), answer: '1', _key: key };
+          });
+          console.log('✅ Converted object to array, length:', questionsData.length);
+        }
+      }
+    }
+    
+    if (!Array.isArray(questionsData) || questionsData.length === 0) {
+      console.error('❌ No questions data found');
+      throw new Error('No question data received');
+    }
+    
+    console.log('✅ Processing ' + questionsData.length + ' questions');
+    
+    var processed = [];
+    for (var idx = 0; idx < questionsData.length; idx++) {
+      try {
+        var item = questionsData[idx];
+        var parsed = item;
+        
+        if (typeof item === 'string') {
+          try {
+            parsed = JSON.parse(item);
+          } catch(e) {
+            parsed = { question: item, answer: '1' };
+          }
+        }
+        
+        if (!parsed || typeof parsed !== 'object') {
+          parsed = { question: String(item), answer: '1' };
+        }
+        
+        var questionText = parsed.Q || parsed.question || parsed.q || parsed.문제 || parsed.text || 'Question ' + (uiStartNumber + idx);
+        var passageText = parsed.passage || parsed.P || parsed.p || parsed.지문 || '';
+        
+        var choices = {};
+        choices['1'] = parsed['1'] || parsed.choice1 || 'Option A';
+        choices['2'] = parsed['2'] || parsed.choice2 || 'Option B';
+        choices['3'] = parsed['3'] || parsed.choice3 || 'Option C';
+        choices['4'] = parsed['4'] || parsed.choice4 || 'Option D';
+        
+        var finalAnswer = '1';
+        if (parsed.A !== undefined && parsed.A !== null && parsed.A !== "") {
+          finalAnswer = String(parsed.A).trim();
+        } else if (parsed.answer !== undefined && parsed.answer !== null && parsed.answer !== "") {
+          finalAnswer = String(parsed.answer).trim();
+        } else if (parsed.정답 !== undefined && parsed.정답 !== null && parsed.정답 !== "") {
+          finalAnswer = String(parsed.정답).trim();
+        } else if (parsed.a !== undefined && parsed.a !== null && parsed.a !== "") {
+          finalAnswer = String(parsed.a).trim();
+        }
+        
+        var originalNumber = parsed.N || parsed.originalNumber || parsed.n || (uiStartNumber + idx);
+        
+        processed.push({
+          N: originalNumber,
+          question: questionText,
+          passage: passageText,
+          choices: choices,
+          answer: finalAnswer,
+          explanation: parsed.explanation || parsed.E || parsed.e || parsed.해설 || 'No explanation available.',
+          graphic: parsed.graphic || parsed.G || parsed.g || parsed.그래픽 || parsed.P_graph || '',
+          originalNumber: originalNumber,
+          A: parsed.A || parsed.answer || parsed.정답 || ''
         });
-        var config = {
-            type: 'scatter',
-            data: {
-                datasets: [{
-                    label: parsed.label || 'Data',
-                    data: normalizedPoints,
-                    showLine: false,
-                    backgroundColor: parsed.color || '#e74c3c',
-                    pointRadius: parsed.pointSize || 6,
-                    pointBackgroundColor: parsed.color || '#e74c3c'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: { display: true, text: parsed.title || parsed.question || 'Scatter Plot', font: { size: 16, weight: 'bold' } }
-                },
-                scales: {
-                    x: { type: 'linear', title: { display: true, text: parsed.xLabel || (parsed.xAxis && parsed.xAxis.label) || 'X' }, grid: { color: '#e0e0e0' },
-                        min: parsed.xAxis && parsed.xAxis.min !== undefined ? parsed.xAxis.min : undefined,
-                        max: parsed.xAxis && parsed.xAxis.max !== undefined ? parsed.xAxis.max : undefined },
-                    y: { type: 'linear', title: { display: true, text: parsed.yLabel || (parsed.yAxis && parsed.yAxis.label) || 'Y' }, grid: { color: '#e0e0e0' },
-                        min: parsed.yAxis && parsed.yAxis.min !== undefined ? parsed.yAxis.min : undefined,
-                        max: parsed.yAxis && parsed.yAxis.max !== undefined ? parsed.yAxis.max : undefined }
-                }
-            }
-        };
-        createChart(chartId, config);
+        
+        if (idx === 0) {
+          console.log('📝 First question mapped:', processed[0]);
+        }
+      } catch(e) {
+        console.warn('⚠️ Parse error for item', idx, ':', e);
+      }
     }
-    renderWithDelay(chartId, renderFn, 150);
-    return html;
-}
-registerRenderer('scatter-only', renderScatterOnly);
-registerRenderer('scatter', renderScatterOnly);
-
-// ================================================================
-// COORDINATE-PLANE
-// ================================================================
-function renderCoordinatePlane(parsed) {
-    var chartId = 'chart_' + Math.random().toString(36).substr(2, 9);
-    var html = '<div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;"><canvas id="' + chartId + '" style="max-height:400px;width:100%;"></canvas></div>';
     
-    function renderFn() {
-        var canvas = document.getElementById(chartId);
-        if (!canvas) return;
-        var W = canvas.width, H = canvas.height, pad = 50;
-        var ctx = canvas.getContext('2d');
-        
-        var xMin = (parsed.xAxis && parsed.xAxis.min !== undefined) ? parsed.xAxis.min : -10;
-        var xMax = (parsed.xAxis && parsed.xAxis.max !== undefined) ? parsed.xAxis.max : 10;
-        var yMin = (parsed.yAxis && parsed.yAxis.min !== undefined) ? parsed.yAxis.min : -10;
-        var yMax = (parsed.yAxis && parsed.yAxis.max !== undefined) ? parsed.yAxis.max : 10;
-        var xLabel = (parsed.xAxis && parsed.xAxis.label) || 'x';
-        var yLabel = (parsed.yAxis && parsed.yAxis.label) || 'y';
-        
-        ctx.save();
-        ctx.strokeStyle = '#e0e0e0';
-        ctx.lineWidth = 0.5;
-        var tickX = (parsed.xAxis && parsed.xAxis.tick) || 1;
-        var tickY = (parsed.yAxis && parsed.yAxis.tick) || 1;
-        
-        for (var x = Math.ceil(xMin / tickX) * tickX; x <= xMax; x += tickX) {
-            var px = toPixelX(x, xMin, xMax, W, pad);
-            ctx.beginPath(); ctx.moveTo(px, pad); ctx.lineTo(px, H - pad); ctx.stroke();
-            ctx.fillStyle = '#333'; ctx.font = '11px Arial'; ctx.textAlign = 'center';
-            ctx.fillText(x, px, H - pad + 16);
-        }
-        for (var y = Math.ceil(yMin / tickY) * tickY; y <= yMax; y += tickY) {
-            var py = toPixelY(y, yMin, yMax, H, pad);
-            ctx.beginPath(); ctx.moveTo(pad, py); ctx.lineTo(W - pad, py); ctx.stroke();
-            ctx.fillStyle = '#333'; ctx.font = '11px Arial'; ctx.textAlign = 'right';
-            ctx.fillText(y, pad - 8, py + 4);
-        }
-        ctx.fillStyle = '#333'; ctx.font = '13px Arial bold'; ctx.textAlign = 'center';
-        ctx.fillText(xLabel, W / 2, H - 6);
-        ctx.textAlign = 'center'; ctx.fillText(yLabel, 20, pad - 10);
-        ctx.restore();
-        
-        var datasets = [];
-        
-        if (parsed.points && parsed.points.length > 0) {
-            var pts = parsed.points.map(function(p) { if (Array.isArray(p)) return { x: p[0], y: p[1] }; return p; });
-            datasets.push({ label: 'Points', data: pts, showLine: false, backgroundColor: '#e74c3c', pointRadius: 6, pointBackgroundColor: '#e74c3c', pointBorderColor: 'white', pointBorderWidth: 2 });
-        }
-        
-        if (parsed.segments && parsed.segments.length > 0) {
-            for (var si = 0; si < parsed.segments.length; si++) {
-                var seg = parsed.segments[si];
-                datasets.push({ label: seg.label || 'Segment ' + (si+1), data: [{ x: seg.from[0], y: seg.from[1] }, { x: seg.to[0], y: seg.to[1] }], showLine: true, borderColor: seg.color || '#2c3e50', borderWidth: seg.lineWidth || 2, pointRadius: 0, fill: false });
-            }
-        }
-        
-        if (parsed.lines) {
-            for (var li = 0; li < parsed.lines.length; li++) {
-                var line = parsed.lines[li];
-                var pts2 = [
-                    { x: xMin, y: line.slope * xMin + line.intercept },
-                    { x: xMax, y: line.slope * xMax + line.intercept }
-                ];
-                datasets.push({ label: line.label || 'Line ' + (li+1), data: pts2, showLine: true, borderColor: line.color || CONFIG.COLORS[li % CONFIG.COLORS.length], borderWidth: line.lineWidth || 2, pointRadius: 0, fill: false });
-            }
-        }
-        
-        if (parsed.functions) {
-            for (var fi = 0; fi < parsed.functions.length; fi++) {
-                var fn = parsed.functions[fi];
-                var fnPoints = [];
-                var domain = fn.domain || [xMin, xMax];
-                var step = (domain[1] - domain[0]) / 200;
-                var eqFn = parseFunction(fn.equation);
-                for (var x2 = domain[0]; x2 <= domain[1]; x2 += step) {
-                    try { var y2 = eqFn(x2); if (isFinite(y2) && Math.abs(y2) < 100) fnPoints.push({ x: x2, y: y2 }); } catch(e) {}
-                }
-                if (fnPoints.length > 1) {
-                    datasets.push({ label: fn.equation || 'f(x)', data: fnPoints, showLine: true, borderColor: fn.color || '#e74c3c', borderWidth: fn.lineWidth || 3, pointRadius: 0, tension: 0.3, fill: false });
-                }
-            }
-        }
-        
-        if (parsed.polynomials) {
-            for (var pi = 0; pi < parsed.polynomials.length; pi++) {
-                var poly = parsed.polynomials[pi];
-                var coeffs = poly.coefficients;
-                var terms = [];
-                var degree = coeffs.length - 1;
-                for (var ci = 0; ci < coeffs.length; ci++) {
-                    var c = coeffs[ci];
-                    if (c === 0) continue;
-                    var exp = degree - ci;
-                    if (exp === 0) terms.push(String(c));
-                    else if (exp === 1) terms.push(c + '*x');
-                    else terms.push(c + '*x^' + exp);
-                }
-                var eq = terms.join('+');
-                var fnPoints2 = [];
-                var domain2 = poly.domain || [xMin, xMax];
-                var step2 = (domain2[1] - domain2[0]) / 200;
-                var eqFn2 = parseFunction(eq);
-                for (var x3 = domain2[0]; x3 <= domain2[1]; x3 += step2) {
-                    try { var y3 = eqFn2(x3); if (isFinite(y3) && Math.abs(y3) < 100) fnPoints2.push({ x: x3, y: y3 }); } catch(e) {}
-                }
-                if (fnPoints2.length > 1) {
-                    datasets.push({ label: poly.label || 'Polynomial', data: fnPoints2, showLine: true, borderColor: poly.color || '#9b59b6', borderWidth: poly.lineWidth || 3, pointRadius: 0, tension: 0.3, fill: false });
-                }
-            }
-        }
-        
-        if (parsed.piecewise) {
-            for (var pwi = 0; pwi < parsed.piecewise.length; pwi++) {
-                var piece = parsed.piecewise[pwi];
-                var fnPoints3 = [];
-                var domain3 = piece.domain || [xMin, xMax];
-                var step3 = (domain3[1] - domain3[0]) / 200;
-                var eqFn3 = parseFunction(piece.equation);
-                for (var x4 = domain3[0]; x4 <= domain3[1]; x4 += step3) {
-                    try { var y4 = eqFn3(x4); if (isFinite(y4) && Math.abs(y4) < 100) fnPoints3.push({ x: x4, y: y4 }); } catch(e) {}
-                }
-                if (fnPoints3.length > 1) {
-                    datasets.push({ label: piece.label || piece.equation || 'Piecewise', data: fnPoints3, showLine: true, borderColor: piece.color || '#27ae60', borderWidth: piece.lineWidth || 2.5, pointRadius: 0, tension: 0.1, fill: false });
-                }
-            }
-        }
-        
-        if (parsed.absolute) {
-            var absEq = 'Math.abs(' + parsed.absolute.equation + ')';
-            var fnPoints4 = [];
-            var domain4 = parsed.absolute.domain || [xMin, xMax];
-            var step4 = (domain4[1] - domain4[0]) / 200;
-            var eqFn4 = parseFunction(absEq);
-            for (var x5 = domain4[0]; x5 <= domain4[1]; x5 += step4) {
-                try { var y5 = eqFn4(x5); if (isFinite(y5) && Math.abs(y5) < 100) fnPoints4.push({ x: x5, y: y5 }); } catch(e) {}
-            }
-            if (fnPoints4.length > 1) {
-                datasets.push({ label: '|' + parsed.absolute.equation + '|', data: fnPoints4, showLine: true, borderColor: parsed.absolute.color || '#f39c12', borderWidth: parsed.absolute.lineWidth || 3, pointRadius: 0, tension: 0.3, fill: false });
-            }
-        }
-        
-        if (datasets.length === 0) return;
-        
-        var config = {
-            type: 'scatter',
-            data: { datasets: datasets },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: { display: true, text: parsed.title || 'Coordinate Plane', font: { size: 16, weight: 'bold' } },
-                    legend: { position: 'bottom' }
-                },
-                scales: {
-                    x: { type: 'linear', title: { display: true, text: xLabel }, grid: { color: '#e0e0e0' }, min: xMin, max: xMax },
-                    y: { type: 'linear', title: { display: true, text: yLabel }, grid: { color: '#e0e0e0' }, min: yMin, max: yMax }
-                }
-            }
-        };
-        createChart(chartId, config);
+    if (processed.length === 0) {
+      console.error('❌ No questions could be parsed');
+      throw new Error('No valid question data');
     }
-    renderWithDelay(chartId, renderFn, 150);
-    return html;
+    
+    console.log('✅ Successfully parsed ' + processed.length + ' questions');
+    console.log('📝 First question preview:', processed[0]);
+    return processed;
+  } catch(err) {
+    console.error('❌ Load failed:', err);
+    return [];
+  }
 }
-registerRenderer('coordinate-plane', renderCoordinatePlane);
 
-// ================================================================
-// TABLE
-// ================================================================
-function renderTable(parsed) {
-    if (!parsed.headers || !parsed.rows) return '<div style="padding:10px;color:#999;">No data</div>';
+function renderGraphic(jsonData) {
+  if (!jsonData || jsonData.trim() == "") return "";
+  
+  var data = jsonData.trim();
+  if (data.startsWith("\"") && data.endsWith("\"")) data = data.slice(1, -1);
+  data = data.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  
+  var parsedData = null;
+  try {
+    parsedData = JSON.parse(data);
+  } catch(e) {
+    return '<div style="padding:10px;color:#999;text-align:center;">📊 Invalid JSON</div>';
+  }
+  
+  if (!parsedData || typeof parsedData !== 'object') {
+    return '<div style="padding:10px;color:#999;text-align:center;">📊 No data</div>';
+  }
+  
+  var colors = ['#3498db', '#e74c3c', '#27ae60', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#2c3e50', '#7f8c8d', '#16a085', '#d35400', '#c0392b'];
+  var chartId = 'chart_' + Math.random().toString(36).substr(2, 9);
+  var html = '<div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;"><canvas id="' + chartId + '" style="max-height:400px;width:100%;"></canvas></div>';
+  
+  // TABLE
+  if (parsedData.type === 'table' && parsedData.headers && parsedData.rows) {
     var h = '<div style="margin:15px 0;overflow-x:auto;background:white;border-radius:8px;border:1px solid #ddd;"><table style="width:100%;border-collapse:collapse;text-align:center;font-size:14px;">';
     h += '<thead><tr style="background:#3498db;color:white;">';
-    for (var hi = 0; hi < parsed.headers.length; hi++) {
-        h += '<th style="padding:10px 14px;border:1px solid #2980b9;font-weight:bold;">' + escapeHtml(parsed.headers[hi]) + '</th>';
-    }
+    parsedData.headers.forEach(function(hd) { 
+      h += '<th style="padding:10px 14px;border:1px solid #2980b9;font-weight:bold;">' + escapeHtml(hd) + '</th>'; 
+    });
     h += '</tr></thead><tbody>';
-    for (var ri = 0; ri < parsed.rows.length; ri++) {
-        var row = parsed.rows[ri];
-        h += '<tr style="background:' + (ri%2===0?'#fff':'#f8f9fa') + ';">';
-        for (var ci = 0; ci < row.length; ci++) {
-            h += '<td style="padding:8px 14px;border:1px solid #ddd;">' + escapeHtml(row[ci]) + '</td>';
-        }
-        h += '</tr>';
-    }
+    parsedData.rows.forEach(function(row, ri) {
+      h += '<tr style="background:' + (ri%2===0?'#fff':'#f8f9fa') + ';">';
+      row.forEach(function(cell) { 
+        h += '<td style="padding:8px 14px;border:1px solid #ddd;">' + escapeHtml(cell) + '</td>'; 
+      });
+      h += '</tr>';
+    });
     h += '</tbody></table>';
-    if (parsed.title) h += '<div style="text-align:center;padding:8px;font-weight:bold;color:#555;background:#f8f9fa;border-radius:0 0 8px 8px;">' + escapeHtml(parsed.title) + '</div>';
+    if (parsedData.title) h += '<div style="text-align:center;padding:8px;font-weight:bold;color:#555;background:#f8f9fa;border-radius:0 0 8px 8px;">' + escapeHtml(parsedData.title) + '</div>';
     h += '</div>';
     return h;
-}
-registerRenderer('table', renderTable);
-registerRenderer('frequency-table', renderTable);
-
-// ================================================================
-// BAR
-// ================================================================
-function renderBar(parsed) {
-    var labels = [], datasets = [];
-    if (parsed.labels && parsed.values) {
-        labels = parsed.labels;
-        var values = parsed.values;
+  }
+  
+  // BAR
+  else if (parsedData.type === 'bar') {
+    var labels = [];
+    var datasets = [];
+    var chartTitle = parsedData.title || 'Bar Chart';
+    var xLabel = parsedData.xAxis?.label || '';
+    var yLabel = parsedData.yAxis?.label || '';
+    var yMin = parsedData.yAxis?.min || 0;
+    var yMax = parsedData.yAxis?.max || undefined;
+    
+    function normalizeArray(arr) {
+      if (typeof arr === 'string') {
+        try { return JSON.parse(arr); } catch(e) { return arr.split(',').map(function(v) { return v.trim(); }); }
+      }
+      if (!Array.isArray(arr)) return [];
+      return arr;
+    }
+    
+    if (parsedData.labels && parsedData.values) {
+      labels = normalizeArray(parsedData.labels);
+      var values = parsedData.values;
+      if (typeof values === 'string') {
+        try { values = JSON.parse(values); } catch(e) { values = values.split(',').map(function(v) { return parseFloat(v.trim()); }); }
+      }
+      if (!Array.isArray(values)) values = [];
+      datasets = [{
+        label: parsedData.label || 'Data',
+        data: values,
+        backgroundColor: parsedData.color || '#3498db80',
+        borderColor: parsedData.stroke || '#3498db',
+        borderWidth: 2
+      }];
+    } else if (parsedData.series) {
+      var series = normalizeArray(parsedData.series);
+      labels = normalizeArray(parsedData.categories || parsedData.xAxis?.ticks || []);
+      datasets = series.map(function(s, i) {
+        var values = s.values || [];
         if (typeof values === 'string') {
-            try { values = JSON.parse(values); } catch(e) { values = values.split(',').map(function(v) { return parseFloat(v.trim()); }); }
+          try { values = JSON.parse(values); } catch(e) { values = values.split(',').map(function(v) { return parseFloat(v.trim()); }); }
         }
         if (!Array.isArray(values)) values = [];
-        datasets = [{ label: parsed.label || 'Data', data: values, backgroundColor: parsed.color || '#3498db80', borderColor: parsed.stroke || '#3498db', borderWidth: 2 }];
-    } else if (parsed.series) {
-        labels = parsed.categories || [];
-        for (var si = 0; si < parsed.series.length; si++) {
-            var s = parsed.series[si];
-            var vals = s.values || [];
-            if (typeof vals === 'string') {
-                try { vals = JSON.parse(vals); } catch(e) { vals = vals.split(',').map(function(v) { return parseFloat(v.trim()); }); }
+        return {
+          label: s.name || 'Series ' + (i+1),
+          data: values,
+          backgroundColor: colors[i % colors.length] + '80',
+          borderColor: colors[i % colors.length],
+          borderWidth: 2
+        };
+      });
+    }
+    
+    if (datasets.length === 0 || datasets.every(function(d) { return d.data.length === 0; })) {
+      return '<div style="padding:10px;color:#999;text-align:center;">📊 No data for bar chart</div>';
+    }
+    
+    setTimeout(function() {
+      var ctx = document.getElementById(chartId);
+      if (!ctx) return;
+      if (window._chartInstances && window._chartInstances[chartId]) {
+        window._chartInstances[chartId].destroy();
+      }
+      if (!window._chartInstances) window._chartInstances = {};
+      
+      var cc = {
+        type: 'bar',
+        data: { labels: labels, datasets: datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: { display: true, text: chartTitle, font: { size: 16, weight: 'bold' } },
+            legend: { position: 'bottom' }
+          },
+          scales: {
+            x: { title: { display: true, text: xLabel }, grid: { color: '#e0e0e0' } },
+            y: { 
+              beginAtZero: true, 
+              title: { display: true, text: yLabel }, 
+              grid: { color: '#e0e0e0' }, 
+              min: yMin, 
+              max: yMax 
             }
-            if (!Array.isArray(vals)) vals = [];
-            datasets.push({ label: s.name || 'Series ' + (si+1), data: vals, backgroundColor: CONFIG.COLORS[si % CONFIG.COLORS.length] + '80', borderColor: CONFIG.COLORS[si % CONFIG.COLORS.length], borderWidth: 2 });
+          }
         }
-    }
-    if (datasets.length === 0) return '<div style="padding:10px;color:#999;">No data</div>';
+      };
+      
+      var canvas = document.getElementById(chartId);
+      if (canvas && cc) {
+        canvas.parentElement.style.height = '400px';
+        window._chartInstances[chartId] = new Chart(canvas, cc);
+      }
+    }, 100);
     
-    var chartId = 'chart_' + Math.random().toString(36).substr(2, 9);
-    var html = '<div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;"><canvas id="' + chartId + '" style="max-height:400px;width:100%;"></canvas></div>';
-    
-    function renderFn() {
-        var config = {
-            type: 'bar',
-            data: { labels: labels, datasets: datasets },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: { display: true, text: parsed.title || 'Bar Chart', font: { size: 16, weight: 'bold' } },
-                    legend: { position: 'bottom' }
-                },
-                scales: {
-                    x: { title: { display: true, text: (parsed.xAxis && parsed.xAxis.label) || '' }, grid: { color: '#e0e0e0' } },
-                    y: { beginAtZero: true, title: { display: true, text: (parsed.yAxis && parsed.yAxis.label) || '' }, grid: { color: '#e0e0e0' } }
-                }
-            }
-        };
-        createChart(chartId, config);
-    }
-    renderWithDelay(chartId, renderFn, 150);
     return html;
-}
-registerRenderer('bar', renderBar);
-registerRenderer('stacked-bar', renderBar);
-registerRenderer('histogram', renderBar);
-
-// ================================================================
-// PIE / DOUGHNUT
-// ================================================================
-function renderPie(parsed) {
-    if (!parsed.labels || !parsed.values) return '<div style="padding:10px;color:#999;">No data</div>';
-    var isDoughnut = (parsed.type === 'doughnut');
-    var chartId = 'chart_' + Math.random().toString(36).substr(2, 9);
-    var html = '<div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;"><canvas id="' + chartId + '" style="max-height:400px;width:100%;"></canvas></div>';
-    
-    function renderFn() {
-        var config = {
-            type: isDoughnut ? 'doughnut' : 'pie',
-            data: {
-                labels: parsed.labels,
-                datasets: [{ data: parsed.values, backgroundColor: parsed.colors || CONFIG.COLORS, borderWidth: 2 }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: { display: true, text: parsed.title || (isDoughnut ? 'Doughnut Chart' : 'Pie Chart'), font: { size: 16, weight: 'bold' } },
-                    legend: { position: 'bottom' }
-                },
-                cutout: isDoughnut ? (parsed.cutout || '50%') : '0%'
-            }
-        };
-        createChart(chartId, config);
-    }
-    renderWithDelay(chartId, renderFn, 150);
-    return html;
-}
-registerRenderer('pie', renderPie);
-registerRenderer('doughnut', renderPie);
-registerRenderer('gauge', renderPie);
-
-// ================================================================
-// LINE
-// ================================================================
-function renderLine(parsed) {
-    if (!parsed.series) return '<div style="padding:10px;color:#999;">No series data</div>';
-    var chartId = 'chart_' + Math.random().toString(36).substr(2, 9);
-    var html = '<div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;"><canvas id="' + chartId + '" style="max-height:400px;width:100%;"></canvas></div>';
-    
-    function renderFn() {
-        var ds = [];
-        for (var li = 0; li < parsed.series.length; li++) {
-            var s = parsed.series[li];
-            var points = [];
-            if (Array.isArray(s.points)) {
-                points = s.points;
-            } else if (typeof s.points === 'string') {
-                try { points = JSON.parse(s.points); } catch(e) { points = []; }
-            } else if (Array.isArray(s.data)) {
-                for (var di = 0; di < s.data.length; di++) {
-                    points.push({ x: (parsed.xAxis && parsed.xAxis.categories && parsed.xAxis.categories[di]) || di, y: s.data[di] });
-                }
-            }
-            ds.push({
-                label: s.name || ('Series ' + (li + 1)),
-                data: points,
-                showLine: true,
-                borderColor: s.color || CONFIG.COLORS[li % CONFIG.COLORS.length],
-                backgroundColor: (s.color || CONFIG.COLORS[li % CONFIG.COLORS.length]) + '20',
-                borderWidth: s.lineWidth || 2,
-                pointRadius: s.pointSize || 4,
-                tension: s.tension || 0.3,
-                fill: s.fill || false
-            });
+  }
+  
+  // PIE
+  else if (parsedData.type === 'pie' && parsedData.labels && parsedData.values) {
+    setTimeout(function() {
+      var ctx = document.getElementById(chartId);
+      if (!ctx) return;
+      if (window._chartInstances && window._chartInstances[chartId]) {
+        window._chartInstances[chartId].destroy();
+      }
+      if (!window._chartInstances) window._chartInstances = {};
+      
+      var cc = {
+        type: 'pie',
+        data: {
+          labels: parsedData.labels,
+          datasets: [{
+            data: parsedData.values,
+            backgroundColor: parsedData.colors || ['#3498db', '#e74c3c', '#27ae60', '#f39c12', '#9b59b6', '#1abc9c']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: { display: true, text: parsedData.title || 'Pie Chart', font: { size: 16, weight: 'bold' } },
+            legend: { position: 'bottom' }
+          }
         }
-        var config = {
-            type: 'scatter',
-            data: { datasets: ds },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: { display: true, text: parsed.title || 'Line Chart', font: { size: 16, weight: 'bold' } },
-                    legend: { position: 'bottom' }
-                },
-                scales: {
-                    x: { type: 'linear', title: { display: true, text: (parsed.xAxis && (parsed.xAxis.title || parsed.xAxis.label)) || 'X' }, grid: { color: '#e0e0e0' } },
-                    y: { title: { display: true, text: (parsed.yAxis && (parsed.yAxis.title || parsed.yAxis.label)) || 'Y' }, grid: { color: '#e0e0e0' } }
-                }
-            }
-        };
-        createChart(chartId, config);
-    }
-    renderWithDelay(chartId, renderFn, 150);
-    return html;
-}
-registerRenderer('line', renderLine);
-
-// ================================================================
-// RADAR
-// ================================================================
-function renderRadar(parsed) {
-    if (!parsed.labels || !parsed.datasets) return '<div style="padding:10px;color:#999;">No data</div>';
-    var chartId = 'chart_' + Math.random().toString(36).substr(2, 9);
-    var html = '<div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;"><canvas id="' + chartId + '" style="max-height:400px;width:100%;"></canvas></div>';
+      };
+      
+      var canvas = document.getElementById(chartId);
+      if (canvas && cc) {
+        canvas.parentElement.style.height = '400px';
+        window._chartInstances[chartId] = new Chart(canvas, cc);
+      }
+    }, 100);
     
-    function renderFn() {
-        var ds = [];
-        for (var rdi = 0; rdi < parsed.datasets.length; rdi++) {
-            var d = parsed.datasets[rdi];
-            var values = d.values || [];
-            if (typeof values === 'string') {
-                try { values = JSON.parse(values); } catch(e) { values = values.split(',').map(function(v) { return parseFloat(v.trim()); }); }
-            }
-            ds.push({ label: d.label || 'Series ' + (rdi+1), data: values, borderColor: d.color || CONFIG.COLORS[rdi % CONFIG.COLORS.length], backgroundColor: (d.color || CONFIG.COLORS[rdi % CONFIG.COLORS.length]) + '20', borderWidth: 2, pointRadius: 4 });
+    return html;
+  }
+  
+  // LINE
+  else if (parsedData.type === 'line' && parsedData.series) {
+    setTimeout(function() {
+      var ctx = document.getElementById(chartId);
+      if (!ctx) return;
+      if (window._chartInstances && window._chartInstances[chartId]) {
+        window._chartInstances[chartId].destroy();
+      }
+      if (!window._chartInstances) window._chartInstances = {};
+      
+      var ds = parsedData.series.map(function(s, i) {
+        var points = [];
+        if (Array.isArray(s.points)) {
+          points = s.points;
+        } else if (typeof s.points === 'string') {
+          try { points = JSON.parse(s.points); } catch(e) { points = []; }
+        } else if (Array.isArray(s.data) && parsedData.xAxis && Array.isArray(parsedData.xAxis.categories)) {
+          points = s.data.map(function(y, idx) {
+            return { x: parsedData.xAxis.categories[idx], y: y };
+          });
+        } else if (Array.isArray(s.data) && s.data.length && typeof s.data[0] === 'object') {
+          points = s.data;
         }
-        var config = {
-            type: 'radar',
-            data: { labels: parsed.labels, datasets: ds },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: { display: true, text: parsed.title || 'Radar Chart', font: { size: 16, weight: 'bold' } }
-                },
-                scales: { r: { beginAtZero: true, grid: { color: '#e0e0e0' } } }
-            }
+        return {
+          label: s.name || ('Series ' + (i + 1)),
+          data: points,
+          showLine: true,
+          borderColor: s.color || colors[i % colors.length],
+          backgroundColor: (s.color || colors[i % colors.length]) + '20',
+          borderWidth: s.lineWidth || 2,
+          pointRadius: s.pointSize || 4,
+          tension: s.tension || 0.3,
+          fill: s.fill || false
         };
-        createChart(chartId, config);
-    }
-    renderWithDelay(chartId, renderFn, 150);
-    return html;
-}
-registerRenderer('radar', renderRadar);
-
-// ================================================================
-// SHAPE
-// ================================================================
-function renderShape(parsed) {
-    if (!parsed.points || parsed.points.length === 0) {
-        return '<div style="padding:10px;color:#999;">No points data</div>';
-    }
-    var chartId = 'chart_' + Math.random().toString(36).substr(2, 9);
-    var html = '<div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;"><canvas id="' + chartId + '" style="max-height:400px;width:100%;"></canvas></div>';
-    
-    function renderFn() {
-        var pts = parsed.points.slice();
-        if (pts.length > 0) { pts.push({ x: parsed.points[0].x, y: parsed.points[0].y }); }
-        var config = {
-            type: 'scatter',
-            data: {
-                datasets: [{
-                    label: parsed.label || 'Shape',
-                    data: pts,
-                    showLine: true,
-                    borderColor: parsed.stroke || '#2c3e50',
-                    backgroundColor: parsed.fill || 'rgba(52,152,219,0.15)',
-                    borderWidth: parsed.lineWidth || 2,
-                    pointRadius: parsed.pointSize || 4,
-                    pointBackgroundColor: parsed.stroke || '#2c3e50',
-                    fill: true,
-                    tension: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: { display: true, text: parsed.question || parsed.title || 'Shape', font: { size: 16, weight: 'bold' } },
-                    legend: { position: 'bottom' }
-                },
-                scales: {
-                    x: { type: 'linear', title: { display: true, text: 'X' }, grid: { color: '#e0e0e0' } },
-                    y: { type: 'linear', title: { display: true, text: 'Y' }, grid: { color: '#e0e0e0' } }
-                }
-            }
-        };
-        createChart(chartId, config);
-    }
-    renderWithDelay(chartId, renderFn, 150);
-    return html;
-}
-registerRenderer('shape', renderShape);
-registerRenderer('shape-polygon', renderShape);
-registerRenderer('shape-circle', renderShape);
-registerRenderer('shape-ellipse', renderShape);
-registerRenderer('shape-triangle', renderShape);
-
-// ================================================================
-// MAIN DISPATCHER
-// ================================================================
-function renderGraphic(jsonData) {
-    if (jsonData === null || jsonData === undefined) return "";
-    if (typeof jsonData === 'string' && jsonData.trim() === "") return "";
-    
-    var parsed = safeParseJSON(jsonData);
-    if (!parsed || typeof parsed !== 'object') {
-        return '<div style="padding:10px;color:#999;text-align:center;">📊 Invalid graphic data</div>';
-    }
-    
-    var type = parsed.type || '';
-    if (!type) {
-        return '<div style="padding:10px;color:#999;text-align:center;">📊 No type specified</div>';
-    }
-    
-    if (typeof Chart === 'undefined') {
-        return '<div style="padding:10px;color:#999;text-align:center;">📊 Loading chart library...</div>';
-    }
-    
-    var renderer = getRenderer(type);
-    if (renderer) {
-        try {
-            return renderer(parsed);
-        } catch(e) {
-            console.warn('⚠️ Renderer failed for type:', type, e);
-            return '<div style="padding:10px;color:#999;text-align:center;">📊 Render error: ' + escapeHtml(type) + '</div>';
+      });
+      
+      var cc = {
+        type: 'scatter',
+        data: { datasets: ds },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: { display: true, text: parsedData.title || 'Line Chart', font: { size: 16, weight: 'bold' } },
+            legend: { position: 'bottom' }
+          },
+          scales: {
+            x: { type: 'linear', title: { display: true, text: (parsedData.xAxis && (parsedData.xAxis.title || parsedData.xAxis.label)) || 'X' }, grid: { color: '#e0e0e0' } },
+            y: { title: { display: true, text: (parsedData.yAxis && (parsedData.yAxis.title || parsedData.yAxis.label)) || 'Y' }, grid: { color: '#e0e0e0' } }
+          }
         }
-    }
-    
+      };
+      
+      var canvas = document.getElementById(chartId);
+      if (canvas && cc) {
+        canvas.parentElement.style.height = '400px';
+        window._chartInstances[chartId] = new Chart(canvas, cc);
+      }
+    }, 100);
+    return html;
+  }
+  
+  // SCATTER
+  else if (parsedData.type === 'scatter' && parsedData.points) {
+    setTimeout(function() {
+      var ctx = document.getElementById(chartId);
+      if (!ctx) return;
+      if (window._chartInstances && window._chartInstances[chartId]) {
+        window._chartInstances[chartId].destroy();
+      }
+      if (!window._chartInstances) window._chartInstances = {};
+      
+      var cc = {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: parsedData.equation || parsedData.label || 'Data',
+            data: parsedData.points,
+            showLine: true,
+            borderColor: parsedData.color || '#3498db',
+            backgroundColor: (parsedData.color || '#3498db') + '20',
+            borderWidth: parsedData.lineWidth || 2,
+            pointRadius: parsedData.pointSize || 4,
+            tension: parsedData.tension || 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: { display: true, text: parsedData.equation || parsedData.title || 'Scatter Plot', font: { size: 16, weight: 'bold' } }
+          },
+          scales: {
+            x: { type: 'linear', title: { display: true, text: parsedData.xLabel || 'X' }, grid: { color: '#e0e0e0' } },
+            y: { title: { display: true, text: parsedData.yLabel || 'Y' }, grid: { color: '#e0e0e0' } }
+          }
+        }
+      };
+      
+      var canvas = document.getElementById(chartId);
+      if (canvas && cc) {
+        canvas.parentElement.style.height = '400px';
+        window._chartInstances[chartId] = new Chart(canvas, cc);
+      }
+    }, 100);
+    return html;
+  }
+  
+  // RADAR
+  else if (parsedData.type === 'radar' && parsedData.labels && parsedData.datasets) {
+    setTimeout(function() {
+      var ctx = document.getElementById(chartId);
+      if (!ctx) return;
+      if (window._chartInstances && window._chartInstances[chartId]) {
+        window._chartInstances[chartId].destroy();
+      }
+      if (!window._chartInstances) window._chartInstances = {};
+      
+      var ds = parsedData.datasets.map(function(d, i) {
+        var values = d.values || [];
+        if (typeof values === 'string') {
+          try { values = JSON.parse(values); } catch(e) { values = values.split(',').map(function(v) { return parseFloat(v.trim()); }); }
+        }
+        return {
+          label: d.label || 'Series ' + (i+1),
+          data: values,
+          borderColor: d.color || colors[i % colors.length],
+          backgroundColor: (d.color || colors[i % colors.length]) + '20',
+          borderWidth: 2,
+          pointRadius: 4
+        };
+      });
+      
+      var cc = {
+        type: 'radar',
+        data: { labels: parsedData.labels, datasets: ds },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: { display: true, text: parsedData.title || 'Radar Chart', font: { size: 16, weight: 'bold' } }
+          },
+          scales: {
+            r: { beginAtZero: true, grid: { color: '#e0e0e0' } }
+          }
+        }
+      };
+      
+      var canvas = document.getElementById(chartId);
+      if (canvas && cc) {
+        canvas.parentElement.style.height = '400px';
+        window._chartInstances[chartId] = new Chart(canvas, cc);
+      }
+    }, 100);
+    return html;
+  }
+  
+  // UNSUPPORTED
+  else {
     return '<div style="padding:10px;text-align:center;color:#999;border:1px dashed #ddd;border-radius:8px;margin:15px 0;">' +
-        '<span style="font-size:20px;">📊</span>' +
-        '<p style="margin-top:8px;">Graph type "<strong>' + escapeHtml(type) + '</strong>" is not supported.</p>' +
-        '</div>';
+      '<span style="font-size:20px;">📊</span>' +
+      '<p style="margin-top:8px;">Graph type "<strong>' + escapeHtml(parsedData.type || 'Unknown') + '</strong>" is not supported.</p>' +
+      '</div>';
+  }
 }
 
-// ================================================================
-// 전역 노출
-// ================================================================
-window.renderGraphic = renderGraphic;
-window.safeParseJSON = safeParseJSON;
-window.parseFunction = parseFunction;
-window.CONFIG = CONFIG;
-window.registerRenderer = registerRenderer;
-window.getSupportedTypes = getSupportedTypes;
+function renderSubjectiveQuestion(q, answered, headerText, passageHtml) {
+  var isAnswered = (answered !== null && answered !== undefined && answered !== -1);
+  if (!isAnswered) {
+    DOM.explanationBox.classList.remove('show');
+    DOM.explanationText.innerHTML = '';
+  }
+  var correctAnswerText = '';
+  if (q.A && q.A !== '') {
+    correctAnswerText = String(q.A).trim();
+  } else if (q.answer && q.answer !== '' && q.answer !== '0') {
+    correctAnswerText = String(q.answer).trim();
+  } else {
+    correctAnswerText = 'Answer not available';
+  }
+  var html = '<div class="question-card">' +
+    '<div class="q-num">' + headerText + '</div>' +
+    passageHtml +
+    renderGraphic(q.graphic) +
+    '<div class="question-text">' + escapeHtml(q.question) + '</div>';
+  if (isAnswered) {
+    var userAns = String(answered).trim();
+    var isCorrect = (userAns === correctAnswerText) || (parseFloat(userAns) === parseFloat(correctAnswerText));
+    var statusColor = isCorrect ? '#27ae60' : '#e74c3c';
+    html += '<div style="margin-top:15px;padding:15px;background:#f8f9fa;border-radius:8px;border-left:4px solid #666;">' +
+      '<div style="font-size:14px;color:#666;">Your answer: <strong>' + escapeHtml(userAns) + '</strong></div>' +
+      '</div>' +
+      '<div class="subjective-result" style="background:' + statusColor + ';">' +
+      'Answer: ' + escapeHtml(correctAnswerText) +
+      '</div>' +
+      '<div class="subjective-explanation">' +
+      '<strong>Explanation</strong>' +
+      '<p style="margin-top:8px;">' + escapeHtml(q.explanation || 'No explanation available.') + '</p>' +
+      '</div>';
+  } else {
+    html += '<div class="subjective-input-group">' +
+      '<input type="text" id="subjectiveInput" placeholder="Enter your answer" onkeypress="if(event.key===\'Enter\') submitSubjective()">' +
+      '<button onclick="submitSubjective()">Submit</button>' +
+      '</div>';
+  }
+  html += '</div></div>';
+  DOM.questionContainer.innerHTML = html;
+  var isLastQuestion = (currentIndex >= currentQuestions.length - 1);
+  if (isLastQuestion) {
+    DOM.nextBtn.style.display = 'none';
+    DOM.submitBtn.style.display = 'inline-block';
+    DOM.submitBtn.innerHTML = 'SUBMIT (Enter)';
+    var isAnswered2 = (userAnswers[currentIndex] !== null && userAnswers[currentIndex] !== undefined && userAnswers[currentIndex] !== -1);
+    DOM.submitBtn.disabled = !isAnswered2;
+    DOM.submitBtn.style.background = isAnswered2 ? '#27ae60' : '#95a5a6';
+    DOM.submitBtn.style.color = isAnswered2 ? 'white' : '#666';
+  } else {
+    DOM.nextBtn.style.display = 'inline-block';
+    DOM.nextBtn.innerHTML = 'NEXT (N)';
+    DOM.submitBtn.style.display = 'none';
+  }
+  DOM.prevBtn.disabled = (currentIndex === 0);
+}
 
-console.log('✅ main.js loaded successfully!');
-console.log('📊 Supported types:', getSupportedTypes().join(', '));
+function renderCurrentQuestion() {
+  console.log('🔴 renderCurrentQuestion START');
+  
+  if (!currentQuestions.length || currentIndex >= currentQuestions.length) {
+    DOM.questionContainer.innerHTML = '<div style="padding:40px;text-align:center;color:red;">Error: Cannot load question</div>';
+    return;
+  }
+  
+  var q = currentQuestions[currentIndex];
+  if (!q) {
+    DOM.questionContainer.innerHTML = '<div style="padding:40px;text-align:center;color:red;">Error: Invalid question data</div>';
+    return;
+  }
+  
+  console.log('🔍 Current question:', q);
+  console.log('🔍 q.question:', q.question);
+  console.log('🔍 q.choices:', q.choices);
+  
+  var answered = userAnswers[currentIndex];
+  updateProgressDisplay();
+  
+  var actualNumber = q.originalNumber || (currentStartNumber + currentIndex);
+  var headerText = LANG.qPrefix + ' ' + (currentIndex + 1) + ' ' + LANG.of + ' ' + currentQuestions.length + ' ' + LANG.originalPrefix + actualNumber + LANG.originalSuffix;
+  if (isReviewMode) {
+    headerText = LANG.reviewModeQuestionPrefix + ' ' + (currentIndex + 1) + ' ' + LANG.of + ' ' + currentQuestions.length + ' ' + LANG.originalPrefix + actualNumber + LANG.originalSuffix;
+  }
+  
+  var hasChoices = hasRealChoices(q);
+  var isSubjective = !hasChoices;
+  var passageHtml = '';
+  var displayPassage = q.passage || '';
+  if (displayPassage && displayPassage.trim() !== '' && displayPassage.trim() !== 'No passage.') {
+    passageHtml = '<div style="background:#f8f9fa;padding:15px;border-radius:8px;margin:10px 0;border:1px solid #dee2e6;">' +
+      '<div style="white-space:pre-wrap;font-size:15px;line-height:1.7;">' +
+      escapeHtml(displayPassage) + '</div>' +
+      '</div>';
+  }
+  
+  if (isSubjective) {
+    renderSubjectiveQuestion(q, answered, headerText, passageHtml);
+    return;
+  }
+  
+  var validKeys = getValidChoiceKeys(q.choices);
+  var originalAnswerKey = String(q.answer);
+  var originalAnswerText = q.choices[originalAnswerKey] || '';
+  var actualAnswerKey = null;
+  for (var i = 0; i < validKeys.length; i++) {
+    var key = validKeys[i];
+    if (q.choices[key] === originalAnswerText) {
+      actualAnswerKey = key;
+      break;
+    }
+  }
+  var displayAnswer = actualAnswerKey !== null ? validKeys.indexOf(actualAnswerKey) + 1 : parseInt(originalAnswerKey);
+  
+  var html = '<div class="question-card">' +
+    '<div class="q-num">' + headerText + '</div>' +
+    passageHtml +
+    renderGraphic(q.graphic) +
+    '<div class="question-text">' + escapeHtml(q.question || 'No question text') + '</div>' +
+    '<div class="choices">';
+  
+  for (var idx = 0; idx < validKeys.length; idx++) {
+    var key = validKeys[idx];
+    var choiceNum = parseInt(key);
+    var letter = getAnswerLetter(idx + 1);
+    var choiceText = q.choices[key] || 'Option ' + letter;
+    var isSelected = (answered === choiceNum);
+    var isCorrectChoice = (choiceNum === displayAnswer);
+    var showCorrect = (answered !== null && answered !== undefined && answered !== -1);
+    var cls = 'choice';
+    if (showCorrect) {
+      cls += ' disabled';
+      if (isCorrectChoice) cls += ' correct';
+      if (isSelected && !isCorrectChoice) cls += ' incorrect';
+    }
+    html += '<div class="' + cls + '" data-choice="' + choiceNum + '">' +
+      '<span class="choice-letter">' + letter + '</span>' +
+      '<span>' + escapeHtml(choiceText) + '</span>' +
+      '</div>';
+  }
+  html += '</div></div>';
+  
+  DOM.questionContainer.innerHTML = html;
+  console.log('✅ Question rendered');
+  
+  var choiceEls = DOM.questionContainer.querySelectorAll('.choice:not(.disabled)');
+  choiceEls.forEach(function(el) {
+    el.addEventListener('click', function() {
+      var choice = parseInt(el.getAttribute('data-choice'));
+      if (isNaN(choice)) return;
+      userAnswers[currentIndex] = choice;
+      if (choice === displayAnswer) correctCount++;
+      saveProgress();
+      renderCurrentQuestion();
+      showExplanation();
+    });
+  });
+  
+  if (answered !== null && answered !== undefined && answered !== -1) {
+    showExplanation();
+  } else {
+    DOM.explanationBox.classList.remove('show');
+  }
+  
+  var isLastQuestion = (currentIndex >= currentQuestions.length - 1);
+  if (isLastQuestion) {
+    DOM.nextBtn.style.display = 'none';
+    DOM.submitBtn.style.display = 'inline-block';
+    DOM.submitBtn.innerHTML = 'SUBMIT (Enter)';
+    var isAnswered = (answered !== null && answered !== undefined && answered !== -1);
+    DOM.submitBtn.disabled = !isAnswered;
+    DOM.submitBtn.style.background = isAnswered ? '#27ae60' : '#95a5a6';
+    DOM.submitBtn.style.color = isAnswered ? 'white' : '#666';
+  } else {
+    DOM.nextBtn.style.display = 'inline-block';
+    DOM.nextBtn.innerHTML = 'NEXT (N)';
+    DOM.submitBtn.style.display = 'none';
+  }
+  DOM.prevBtn.disabled = (currentIndex === 0);
+}
+
+function showExplanation() {
+  var q = currentQuestions[currentIndex];
+  var ans = userAnswers[currentIndex];
+  if (!q || ans === null || ans === undefined || ans === -1) {
+    DOM.explanationBox.classList.remove('show');
+    return;
+  }
+  var hasChoices = hasRealChoices(q);
+  if (!hasChoices) {
+    var correctAns = '';
+    if (q.A && q.A !== '') {
+      correctAns = String(q.A).trim();
+    } else if (q.answer && q.answer !== '' && q.answer !== '0') {
+      correctAns = String(q.answer).trim();
+    } else {
+      correctAns = 'Answer not available';
+    }
+    var userAns = String(ans).trim();
+    var isCorrect = (userAns === correctAns) || (parseFloat(userAns) === parseFloat(correctAns));
+    var statusColor = isCorrect ? '#27ae60' : '#e74c3c';
+    DOM.explanationText.innerHTML =
+      '<div style="background:' + statusColor + ';color:white;padding:8px 16px;border-radius:6px;display:inline-block;font-weight:700;margin-bottom:15px;">' +
+      'Answer: ' + escapeHtml(correctAns) +
+      '</div>' +
+      '<div style="margin-top:8px;font-size:14px;color:#555;">' +
+      'Your answer: <strong>' + escapeHtml(userAns) + '</strong>' +
+      '</div>' +
+      '<p style="margin-top:12px;">' + escapeHtml(q.explanation || LANG.noExplanation) + '</p>';
+    DOM.explanationBox.classList.add('show');
+    return;
+  }
+  var validKeys = getValidChoiceKeys(q.choices);
+  var originalAnswerKey = String(q.answer);
+  var originalAnswerText = q.choices[originalAnswerKey] || '';
+  var actualAnswerKey = null;
+  for (var i = 0; i < validKeys.length; i++) {
+    var key = validKeys[i];
+    if (q.choices[key] === originalAnswerText) {
+      actualAnswerKey = key;
+      break;
+    }
+  }
+  var displayAnswerIndex = actualAnswerKey !== null ? validKeys.indexOf(actualAnswerKey) + 1 : parseInt(originalAnswerKey);
+  var userAnswerLetter = getAnswerLetter(ans);
+  var correctAnswerLetter = getAnswerLetter(displayAnswerIndex);
+  var isCorrect = (ans === displayAnswerIndex);
+  var statusColor = isCorrect ? '#27ae60' : '#e74c3c';
+  DOM.explanationText.innerHTML =
+    '<div style="background:' + statusColor + ';color:white;padding:8px 16px;border-radius:6px;display:inline-block;font-weight:700;margin-bottom:15px;">' +
+    'Answer: ' + correctAnswerLetter +
+    '</div>' +
+    '<div style="margin-top:8px;font-size:14px;color:#555;">' +
+    'Your answer: <strong>' + userAnswerLetter + '</strong>' +
+    '</div>' +
+    '<p style="margin-top:12px;">' + escapeHtml(q.explanation || LANG.noExplanation) + '</p>';
+  DOM.explanationBox.classList.add('show');
+}
+
+var timerSeconds = 134 * 60;
+var timerInterval = null;
+var timerRunning = false;
+var timerPaused = false;
+
+function formatTimer(seconds) {
+  var hrs = Math.floor(seconds / 3600);
+  var mins = Math.floor((seconds % 3600) / 60);
+  var secs = seconds % 60;
+  return String(hrs).padStart(2, '0') + ':' + 
+         String(mins).padStart(2, '0') + ':' + 
+         String(secs).padStart(2, '0');
+}
+
+function updateTimerDisplay() {
+  var display = document.getElementById('timerDisplay');
+  if (display) {
+    display.textContent = formatTimer(timerSeconds);
+    if (timerSeconds < 300) {
+      display.classList.add('warning');
+    } else {
+      display.classList.remove('warning');
+    }
+  }
+}
+
+function startTimer() {
+  if (timerInterval) return;
+  timerRunning = true;
+  timerPaused = false;
+  var btn = document.getElementById('timerPauseBtn');
+  if (btn) btn.textContent = '⏸ Pause';
+  timerInterval = setInterval(function() {
+    if (timerSeconds > 0) {
+      timerSeconds--;
+      updateTimerDisplay();
+      if (timerSeconds === 0) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        timerRunning = false;
+        alert('⏰ Time is up!');
+      }
+    }
+  }, 1000);
+}
+
+function pauseTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    timerRunning = false;
+    timerPaused = true;
+    var btn = document.getElementById('timerPauseBtn');
+    if (btn) btn.textContent = '▶ Resume';
+  } else if (timerPaused) {
+    startTimer();
+  }
+}
+
+function resetTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  timerSeconds = 134 * 60;
+  timerRunning = false;
+  timerPaused = false;
+  var btn = document.getElementById('timerPauseBtn');
+  if (btn) btn.textContent = '⏸ Pause';
+  updateTimerDisplay();
+}
+
+function initTimer() {
+  updateTimerDisplay();
+  var pauseBtn = document.getElementById('timerPauseBtn');
+  var resetBtn = document.getElementById('timerResetBtn');
+  if (pauseBtn) pauseBtn.addEventListener('click', pauseTimer);
+  if (resetBtn) resetBtn.addEventListener('click', function() {
+    if (confirm('Reset timer?')) resetTimer();
+  });
+}
+
+function goNext() {
+  if (currentIndex < currentQuestions.length - 1) {
+    currentIndex++;
+    renderCurrentQuestion();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+function goPrev() {
+  if (currentIndex > 0) {
+    currentIndex--;
+    renderCurrentQuestion();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+function skipQuestion() {
+  if (userAnswers[currentIndex] === null || userAnswers[currentIndex] === undefined) {
+    userAnswers[currentIndex] = -1;
+    saveProgress();
+  }
+  if (currentIndex < currentQuestions.length - 1) {
+    currentIndex++;
+    renderCurrentQuestion();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+function submitSubjective() {
+  var input = document.getElementById('subjectiveInput');
+  if (!input) return;
+  var userAnswer = input.value.trim();
+  if (userAnswer === "") {
+    alert('Please enter your answer.');
+    return;
+  }
+  var q = currentQuestions[currentIndex];
+  var correctAnswer = '';
+  if (q.A && q.A !== '') {
+    correctAnswer = String(q.A).trim();
+  } else if (q.answer && q.answer !== '' && q.answer !== '0') {
+    correctAnswer = String(q.answer).trim();
+  } else {
+    correctAnswer = userAnswer;
+  }
+  var isCorrect = (userAnswer === correctAnswer) || (parseFloat(userAnswer) === parseFloat(correctAnswer));
+  userAnswers[currentIndex] = userAnswer;
+  if (isCorrect) correctCount++;
+  saveProgress();
+  renderCurrentQuestion();
+}
+
+function getWrongSkippedUnansweredIndices() {
+  var result = [];
+  for (var i = 0; i < currentQuestions.length; i++) {
+    var q = currentQuestions[i];
+    var ans = userAnswers[i];
+    var isUnanswered = (ans === null || ans === undefined);
+    var isSkipped = (ans === -1);
+    var isSubjective = isSubjectiveQuestion(q);
+    var isIncorrect = false;
+    if (!isUnanswered && !isSkipped) {
+      if (isSubjective) {
+        var correctAns = q.A || q.answer || '';
+        isIncorrect = !(String(ans).trim() === String(correctAns).trim());
+      } else {
+        isIncorrect = (ans !== parseInt(q.answer));
+      }
+    }
+    if (isUnanswered || isSkipped || isIncorrect) result.push(i);
+  }
+  return result;
+}
+
+function showResults() {
+  saveProgress();
+  var answeredCount = userAnswers.filter(function(a) { return a !== null && a !== undefined && a !== -1; }).length;
+  var accuracy = answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0;
+  DOM.correctCountSpan.innerHTML = correctCount + ' / ' + answeredCount;
+  DOM.accuracyRateSpan.innerHTML = accuracy + '%';
+  var gridHtml = '<div style="display:grid;grid-template-columns:repeat(10,1fr);gap:6px;">';
+  for (var i = 0; i < currentQuestions.length; i++) {
+    var ans = userAnswers[i];
+    var isCorrect = (ans !== null && ans !== undefined && ans !== -1 && ans === parseInt(currentQuestions[i].answer));
+    var isSkipped = (ans === -1);
+    var isUnanswered = (ans === null || ans === undefined);
+    var statusClass = isCorrect ? 'correct' : isSkipped ? 'skipped' : isUnanswered ? 'unanswered' : 'incorrect';
+    gridHtml += '<div class="result-item ' + statusClass + '" data-qidx="' + i + '">' + (i + 1) + '</div>';
+  }
+  gridHtml += '</div>';
+  DOM.resultGrid.innerHTML = gridHtml;
+  DOM.resultGrid.querySelectorAll('.result-item[data-qidx]').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var idx = parseInt(el.getAttribute('data-qidx'));
+      currentIndex = idx;
+      DOM.resultModal.style.display = 'none';
+      renderCurrentQuestion();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+  DOM.resultModal.style.display = 'flex';
+}
+
+function showWrongAnswersList() {
+  var wrongItems = [];
+  for (var i = 0; i < currentQuestions.length; i++) {
+    var q = currentQuestions[i];
+    var ans = userAnswers[i];
+    var isSkipped = (ans === -1);
+    var isUnanswered = (ans === null || ans === undefined);
+    var isSubjective = isSubjectiveQuestion(q);
+    var isIncorrect = false;
+    if (!isSkipped && !isUnanswered) {
+      if (isSubjective) {
+        var correctAns = q.A || q.answer || '';
+        isIncorrect = !(String(ans).trim() === String(correctAns).trim());
+      } else {
+        isIncorrect = (ans !== parseInt(q.answer));
+      }
+    }
+    if (isSkipped || isIncorrect || isUnanswered) {
+      var actualNumber = q.originalNumber || (currentStartNumber + i);
+      wrongItems.push({ idx: i, actualNumber: actualNumber, q: q, ans: ans, isSkipped: isSkipped, isUnanswered: isUnanswered, isSubjective: isSubjective });
+    }
+  }
+  if (wrongItems.length === 0) {
+    alert(LANG.allCorrect);
+    return;
+  }
+  var html = '<p style="margin-bottom:15px;padding:10px;background:#f0f0f0;border-radius:8px;text-align:center;">' +
+    LANG.reviewQuestions + ' <strong>' + wrongItems.length + '</strong><br>' +
+    LANG.wrongCount + ' ' + wrongItems.filter(function(w) { return !w.isSkipped && !w.isUnanswered; }).length +
+    ' | ' + LANG.skippedCount + ' ' + wrongItems.filter(function(w) { return w.isSkipped; }).length +
+    ' | ' + LANG.unansweredCount + ' ' + wrongItems.filter(function(w) { return w.isUnanswered; }).length +
+    '</p>';
+  wrongItems.forEach(function(item) {
+    var statusText = item.isSkipped ? LANG.statusSkipped : (item.isUnanswered ? LANG.statusUnanswered : LANG.statusWrong);
+    var statusColor = item.isSkipped ? '#f39c12' : (item.isUnanswered ? '#6c757d' : '#e74c3c');
+    var userAnswerDisplay = (item.ans === null || item.ans === undefined || item.ans === -1) ? '—' : String(item.ans);
+    var correctAnswerDisplay = (item.isSubjective) ? (item.q.A || item.q.answer || '—') : getAnswerLetter(item.q.answer);
+    if (!item.isSubjective && !item.isSkipped && !item.isUnanswered) {
+      userAnswerDisplay = getAnswerLetter(item.ans);
+      correctAnswerDisplay = getAnswerLetter(item.q.answer);
+    }
+    html += '<div class="wrong-item" style="border-left:5px solid ' + statusColor + '">' +
+      '<div style="font-weight:bold;margin-bottom:10px;">' +
+      'Question ' + (item.idx + 1) + ' (Original #' + item.actualNumber + ')' +
+      '<span class="status-badge" style="background:' + statusColor + ';">' + statusText + '</span>' +
+      (item.isSubjective ? ' Subjective' : '') +
+      '</div>' +
+      '<div style="margin-bottom:12px;"><strong>' + escapeHtml(item.q.question) + '</strong></div>' +
+      '<div style="margin-top:12px;padding:10px;background:#f8f9fa;border-radius:8px;">' +
+      '<strong>Your answer:</strong> ' + escapeHtml(String(userAnswerDisplay)) +
+      '<br><strong>Correct answer:</strong> ' + escapeHtml(String(correctAnswerDisplay)) +
+      '</div>' +
+      '<div style="margin-top:12px;padding:10px;background:#e8f4fc;border-radius:8px;">' +
+      '<strong>Explanation</strong><br>' + escapeHtml(item.q.explanation || LANG.noExplanation) +
+      '</div>' +
+      '</div>';
+  });
+  DOM.wrongListDiv.innerHTML = html;
+  DOM.wrongModal.style.display = 'flex';
+}
+
+function startWrongOnlyReview() {
+  var indices = getWrongSkippedUnansweredIndices();
+  if (indices.length === 0) {
+    alert(LANG.allCorrect);
+    return;
+  }
+  var reviewQuestions = indices.map(function(idx) {
+    return currentQuestions[idx];
+  });
+  currentQuestions = reviewQuestions.slice();
+  userAnswers = new Array(currentQuestions.length).fill(null);
+  correctCount = 0;
+  currentIndex = 0;
+  isReviewMode = true;
+  DOM.reviewBanner.style.display = 'block';
+  DOM.reviewBanner.innerHTML = '<span>Review Mode: ' + currentQuestions.length + ' questions</span>' +
+    '<button id="exitReviewBtn" class="exit-review-btn">EXIT REVIEW</button>';
+  document.getElementById('exitReviewBtn').addEventListener('click', function() {
+    clearProgress();
+    window.location.reload();
+  });
+  DOM.wrongModal.style.display = 'none';
+  DOM.resultModal.style.display = 'none';
+  renderCurrentQuestion();
+  saveProgress();
+}
+
+function showProgressModal(saved) {
+  var answered = saved.userAnswers.filter(function(a) { return a !== null && a !== -1; }).length;
+  var total = saved.currentQuestions.length;
+  var progress = saved.currentIndex + 1;
+  var body = document.getElementById('progressModalBody');
+  body.innerHTML = '<div style="padding:10px 0;">' +
+    '<p style="font-size:22px;font-weight:700;color:#2c3e50;text-align:center;margin-bottom:10px;">📊 Resume Session</p>' +
+    '<div style="background:#f8f9fa;border-radius:12px;padding:16px 20px;margin:15px 0;">' +
+    '<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Progress</span><strong>' + progress + ' / ' + total + '</strong></div>' +
+    '<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Answered</span><strong>' + answered + ' / ' + total + '</strong></div>' +
+    '<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Correct</span><strong>' + (saved.correctCount || 0) + '</strong></div>' +
+    '</div>' +
+    '<p style="font-size:13px;color:#999;text-align:center;margin-top:10px;">' +
+    'Click <strong>"Continue"</strong> to resume. Click <strong>"Start Fresh"</strong> to begin again.' +
+    '</p>' +
+    '</div>';
+  document.getElementById('progressModal').setAttribute('data-saved', JSON.stringify(saved));
+  document.getElementById('progressModal').style.display = 'flex';
+}
+
+function resumeProgress(saved) {
+  currentQuestions = saved.currentQuestions;
+  userAnswers = saved.userAnswers;
+  currentIndex = saved.currentIndex || 0;
+  correctCount = saved.correctCount || 0;
+  currentStartNumber = saved.currentStartNumber || 1;
+  isReviewMode = saved.isReviewMode || false;
+  if (saved.masterQuestions) masterQuestions = saved.masterQuestions;
+  if (saved.originalQuestions) originalQuestions = saved.originalQuestions;
+  startAutoSave();
+  DOM.setupSection.style.display = 'none';
+  DOM.quizMain.style.display = 'block';
+  if (DOM.quizContent) DOM.quizContent.style.display = 'block';
+  if (DOM.progressArea) DOM.progressArea.style.display = 'flex';
+  if (isReviewMode) {
+    DOM.reviewBanner.style.display = 'block';
+    DOM.reviewBanner.innerHTML = '<span>Review Mode: ' + currentQuestions.length + ' questions</span>' +
+      '<button id="exitReviewBtn" class="exit-review-btn">EXIT REVIEW</button>';
+    document.getElementById('exitReviewBtn').addEventListener('click', function() {
+      clearProgress();
+      window.location.reload();
+    });
+  }
+  renderCurrentQuestion();
+}
+
+function attachKeyboardEvents() {
+  document.addEventListener('keydown', function(event) {
+    if (event.ctrlKey && (event.key === 'c' || event.key === 'v' || event.key === 'x' || event.key === 'a' ||
+        event.key === 'C' || event.key === 'V' || event.key === 'X' || event.key === 'A')) {
+      return;
+    }
+    if (!DOM.quizContent || DOM.quizContent.style.display === 'none' || DOM.quizContent.style.display === '') return;
+    if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+    var key = event.key;
+    if (key === 'n' || key === 'N' || key === 'L') {
+      event.preventDefault();
+      if (currentIndex < currentQuestions.length - 1) goNext();
+      return;
+    }
+    if (key === 'p' || key === 'P' || key === 'H') {
+      event.preventDefault();
+      if (currentIndex > 0) goPrev();
+      return;
+    }
+    if (key === 's' || key === 'S' || key === 'A') {
+      event.preventDefault();
+      skipQuestion();
+      return;
+    }
+    if (key === 'Enter') {
+      if (currentIndex >= currentQuestions.length - 1 && DOM.submitBtn && DOM.submitBtn.style.display !== 'none') {
+        var isAnswered = (userAnswers[currentIndex] !== null && userAnswers[currentIndex] !== undefined && userAnswers[currentIndex] !== -1);
+        if (isAnswered) {
+          event.preventDefault();
+          showResults();
+        }
+      }
+      return;
+    }
+    if (key === 'ArrowLeft') {
+      event.preventDefault();
+      if (currentIndex > 0) goPrev();
+      return;
+    }
+    if (key === 'ArrowRight') {
+      event.preventDefault();
+      if (currentIndex < currentQuestions.length - 1) goNext();
+      return;
+    }
+  });
+}
+
+function attachEvents() {
+  var continueBtn = document.getElementById('progressContinueBtn');
+  if (continueBtn) {
+    continueBtn.addEventListener('click', function() {
+      var modal = document.getElementById('progressModal');
+      var savedData = modal.getAttribute('data-saved');
+      if (savedData) {
+        var saved = JSON.parse(savedData);
+        modal.style.display = 'none';
+        resumeProgress(saved);
+      }
+    });
+  }
+  var cancelBtn = document.getElementById('progressCancelBtn');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', function() {
+      var modal = document.getElementById('progressModal');
+      modal.style.display = 'none';
+      clearProgress();
+      var startNum = parseInt(document.getElementById('startNumber').value) || 1;
+      startQuizWithNumber(startNum);
+    });
+  }
+  DOM.startQuizBtn.addEventListener('click', function() {
+    var startNum = parseInt(DOM.startNumberInput.value);
+    if (isNaN(startNum) || DOM.startNumberInput.value === "") startNum = 1;
+    if (startNum < 1) startNum = 1;
+    if (startNum > TOTAL_QUESTIONS) startNum = TOTAL_QUESTIONS;
+    clearProgress();
+    startQuizWithNumber(startNum);
+  });
+  DOM.startNumberInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      DOM.startQuizBtn.click();
+    }
+  });
+  DOM.prevBtn.addEventListener('click', goPrev);
+  DOM.nextBtn.addEventListener('click', goNext);
+  DOM.skipBtn.addEventListener('click', skipQuestion);
+  DOM.submitBtn.addEventListener('click', showResults);
+  DOM.quitBtn.addEventListener('click', function() {
+    saveProgress();
+    if (confirm(LANG.confirmExit)) window.location.reload();
+  });
+  DOM.retryAllBtn.addEventListener('click', function() {
+    clearProgress();
+    DOM.resultModal.style.display = 'none';
+    startQuizWithNumber(currentStartNumber);
+  });
+  DOM.reviewWrongBtn.addEventListener('click', function() {
+    DOM.resultModal.style.display = 'none';
+    showWrongAnswersList();
+  });
+  DOM.closeModalBtn.addEventListener('click', function() {
+    DOM.resultModal.style.display = 'none';
+  });
+  DOM.closeWrongBtn.addEventListener('click', function() {
+    DOM.wrongModal.style.display = 'none';
+  });
+  DOM.retryWrongFromReviewBtn.addEventListener('click', startWrongOnlyReview);
+  document.getElementById('splashRetry').addEventListener('click', function() {
+    document.getElementById('splashError').style.display = 'none';
+    document.getElementById('splashRetry').style.display = 'none';
+    document.getElementById('splashStatus').textContent = 'Retrying...';
+    initialize();
+  });
+  attachKeyboardEvents();
+}
+
+function initialize() {
+  DOM.setupSection = document.getElementById('setupSection');
+  DOM.quizMain = document.getElementById('quizMain');
+  DOM.quizContent = document.getElementById('quizContent');
+  DOM.startNumberInput = document.getElementById('startNumber');
+  DOM.startQuizBtn = document.getElementById('startQuizBtn');
+  DOM.maxNumberSpan = document.getElementById('maxNumber');
+  DOM.progressText = document.getElementById('progressText');
+  DOM.quizProgressBar = document.getElementById('quizProgressBar');
+  DOM.questionContainer = document.getElementById('questionContainer');
+  DOM.explanationBox = document.getElementById('explanationBox');
+  DOM.explanationText = document.getElementById('explanationText');
+  DOM.prevBtn = document.getElementById('prevBtn');
+  DOM.nextBtn = document.getElementById('nextBtn');
+  DOM.skipBtn = document.getElementById('skipBtn');
+  DOM.submitBtn = document.getElementById('submitBtn');
+  DOM.quitBtn = document.getElementById('quitBtn');
+  DOM.resultModal = document.getElementById('resultModal');
+  DOM.correctCountSpan = document.getElementById('correctCount');
+  DOM.accuracyRateSpan = document.getElementById('accuracyRate');
+  DOM.resultGrid = document.getElementById('resultGrid');
+  DOM.retryAllBtn = document.getElementById('retryAllBtn');
+  DOM.reviewWrongBtn = document.getElementById('reviewWrongBtn');
+  DOM.closeModalBtn = document.getElementById('closeModalBtn');
+  DOM.wrongModal = document.getElementById('wrongModal');
+  DOM.wrongListDiv = document.getElementById('wrongList');
+  DOM.closeWrongBtn = document.getElementById('closeWrongBtn');
+  DOM.retryWrongFromReviewBtn = document.getElementById('retryWrongFromReviewBtn');
+  DOM.reviewBanner = document.getElementById('reviewBanner');
+  DOM.savedBadgeContainer = document.getElementById('savedBadgeContainer');
+  DOM.loadNextContainer = document.getElementById('loadNextContainer');
+  DOM.mainContainer = document.getElementById('mainContainer');
+  DOM.maxNumberDisplay = document.getElementById('maxNumberDisplay');
+  DOM.setSelector = document.getElementById('setSelector');
+  DOM.progressArea = document.querySelector('.progress-area');
+  if (!DOM.progressArea) {
+    DOM.progressArea = document.getElementById('progressArea');
+  }
+
+  initTimer();
+
+  updateSplash(10, 'Connecting to server...');
+  
+  setTimeout(async function() {
+    try {
+      await detectTotalQuestions();
+      
+      if (TOTAL_QUESTIONS === 0) {
+        TOTAL_QUESTIONS = 720;
+        localStorage.setItem(TOTAL_CACHE_KEY, String(TOTAL_QUESTIONS));
+      }
+      
+      updateSetSelector();
+      
+      updateSplash(60, 'Preparing data...');
+      
+      var maxStartNumber = TOTAL_QUESTIONS;
+      console.log('📊 Total questions: ' + TOTAL_QUESTIONS);
+      
+      if (DOM.maxNumberSpan) DOM.maxNumberSpan.style.display = 'none';
+      if (DOM.maxNumberDisplay) DOM.maxNumberDisplay.style.display = 'none';
+      
+      DOM.startNumberInput.placeholder = '1-' + TOTAL_QUESTIONS;
+      DOM.startNumberInput.max = TOTAL_QUESTIONS;
+      DOM.startNumberInput.min = 1;
+      
+      if (DOM.setSelector) {
+        DOM.setSelector.addEventListener('change', function() {
+          var setNum = parseInt(this.value);
+          if (!isNaN(setNum) && setNum >= 1) {
+            var startNum = (setNum - 1) * QUESTIONS_PER_SET + 1;
+            DOM.startNumberInput.value = startNum;
+            console.log('Set ' + setNum + ' selected, starting from question ' + startNum);
+          }
+        });
+        if (DOM.setSelector.options.length > 0) {
+          DOM.setSelector.value = '1';
+          DOM.startNumberInput.value = '';
+        }
+      }
+      
+      var saved = loadProgress();
+      if (saved && saved.currentQuestions && saved.currentQuestions.length > 0) {
+        var answered = saved.userAnswers.filter(function(a) { return a !== null && a !== -1; }).length;
+        var timeStr = new Date(saved.timestamp).toLocaleString();
+        DOM.savedBadgeContainer.innerHTML =
+          '<div class="resume-badge" id="resumeBadge">' +
+          '<div class="count">' + answered + ' / ' + saved.currentQuestions.length + ' answered</div>' +
+          '<div class="time">' + timeStr + '</div>' +
+          '<div class="hint">Click to resume</div>' +
+          '</div>';
+        var resumeBadge = document.getElementById('resumeBadge');
+        if (resumeBadge) {
+          resumeBadge.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var savedData = loadProgress();
+            if (savedData) showProgressModal(savedData);
+          });
+        }
+        var resumeCard = document.getElementById('resumeCard');
+        if (resumeCard) {
+          var newCard = resumeCard.cloneNode(true);
+          resumeCard.parentNode.replaceChild(newCard, resumeCard);
+          newCard.addEventListener('click', function() {
+            var savedData = loadProgress();
+            if (savedData) showProgressModal(savedData);
+          });
+        }
+      } else {
+        DOM.savedBadgeContainer.innerHTML = '<div class="no-session">' +
+          'No saved session' +
+          '<small>Start a new lesson</small>' +
+          '</div>';
+      }
+      
+      attachEvents();
+      
+      updateSplash(100, 'Ready!');
+      setTimeout(function() {
+        hideSplash();
+        DOM.setupSection.style.display = 'block';
+        DOM.quizMain.style.display = 'block';
+        
+        setTimeout(function() { DOM.startNumberInput.focus(); DOM.startNumberInput.select(); }, 150);
+        setTimeout(function() { DOM.startNumberInput.focus(); DOM.startNumberInput.select(); }, 400);
+        setTimeout(function() { DOM.startNumberInput.focus(); DOM.startNumberInput.select(); }, 700);
+        
+        console.log('✅ Initialization complete: ' + TOTAL_QUESTIONS + ' total questions');
+      }, 400);
+    } catch(e) {
+      console.error('Initialization error:', e);
+      showSplashError(e.message || 'Initialization failed');
+    }
+  }, 300);
+}
+
+async function startQuizWithNumber(uiStartNumber) {
+  if (isNaN(uiStartNumber) || uiStartNumber < 1) uiStartNumber = 1;
+  
+  if (uiStartNumber > TOTAL_QUESTIONS) {
+    console.log('🔄 Number ' + uiStartNumber + ' exceeds total ' + TOTAL_QUESTIONS + '. Looping back to 1.');
+    uiStartNumber = 1;
+  }
+  
+  var setNumber = Math.ceil(uiStartNumber / QUESTIONS_PER_SET);
+  var setStart = (setNumber - 1) * QUESTIONS_PER_SET + 1;
+  
+  var startNum = uiStartNumber;
+  if (uiStartNumber < setStart || uiStartNumber > Math.min(setNumber * QUESTIONS_PER_SET, TOTAL_QUESTIONS)) {
+    startNum = setStart;
+  }
+  
+  currentStartNumber = startNum;
+  
+  var overlay = showLoadingOverlay('Loading ' + QUESTIONS_PER_SET + ' questions from ' + startNum + '...');
+  try {
+    var questions = await load50Questions(startNum);
+    if (questions.length === 0) throw new Error('No question data received');
+    masterQuestions = questions.slice();
+    currentQuestions = masterQuestions.map(function(q) { return randomizeChoicesOnly(q); });
+    userAnswers = new Array(currentQuestions.length).fill(null);
+    correctCount = 0;
+    currentIndex = 0;
+    isReviewMode = false;
+    startAutoSave();
+    hideLoadingOverlay();
+    DOM.setupSection.style.display = 'none';
+    DOM.quizMain.style.display = 'block';
+    
+    if (DOM.quizContent) {
+      DOM.quizContent.style.display = 'block';
+    }
+    if (DOM.progressArea) {
+      DOM.progressArea.style.display = 'flex';
+    }
+    
+    renderCurrentQuestion();
+    
+    resetTimer();
+    startTimer();
+    
+  } catch(err) {
+    hideLoadingOverlay();
+    alert(LANG.loadError + ' ' + err.message);
+    console.error(err);
+  }
+}
+
+// ===== 내보내기 (export) =====
+export { 
+    initialize, 
+    startQuizWithNumber, 
+    renderGraphic,
+    renderCurrentQuestion,
+    showExplanation,
+    goNext,
+    goPrev,
+    skipQuestion,
+    submitSubjective,
+    showResults,
+    showWrongAnswersList,
+    startWrongOnlyReview,
+    saveProgress,
+    loadProgress,
+    clearProgress
+};77
