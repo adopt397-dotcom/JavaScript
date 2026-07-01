@@ -809,7 +809,165 @@ function renderGraphic(jsonData) {
     }, 100);
     return html;
   }
+
+// STACKED-BAR
+else if (parsedData.type === 'stacked-bar' && parsedData.labels && parsedData.datasets) {
+  var stackedChartId = 'chart_' + Math.random().toString(36).substr(2, 9);
+  var stackedHtml = '<div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;"><canvas id="' + stackedChartId + '" style="max-height:400px;width:100%;"></canvas></div>';
   
+  setTimeout(function() {
+    var ctx = document.getElementById(stackedChartId);
+    if (!ctx) return;
+    if (window._chartInstances && window._chartInstances[stackedChartId]) {
+      window._chartInstances[stackedChartId].destroy();
+    }
+    if (!window._chartInstances) window._chartInstances = {};
+    
+    var datasets = parsedData.datasets.map(function(ds, i) {
+      var color = colors[i % colors.length];
+      return {
+        label: ds.label || 'Series ' + (i+1),
+        data: ds.values || [],
+        backgroundColor: color + '80',
+        borderColor: color,
+        borderWidth: 1
+      };
+    });
+    
+    var cc = {
+      type: 'bar',
+      data: {
+        labels: parsedData.labels,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { display: true, text: parsedData.title || 'Stacked Bar Chart', font: { size: 16, weight: 'bold' } },
+          legend: { position: 'bottom' }
+        },
+        scales: {
+          x: { stacked: true, grid: { color: '#e0e0e0' } },
+          y: { stacked: true, beginAtZero: true, grid: { color: '#e0e0e0' } }
+        }
+      }
+    };
+    
+    var canvas = document.getElementById(stackedChartId);
+    if (canvas && cc) {
+      canvas.parentElement.style.height = '400px';
+      window._chartInstances[stackedChartId] = new Chart(canvas, cc);
+    }
+  }, 100);
+  
+  return stackedHtml;
+}
+
+// COMPARE
+else if (parsedData.type === 'compare' && parsedData.graphs) {
+  var compareChartId = 'chart_' + Math.random().toString(36).substr(2, 9);
+  var compareHtml = '<div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;"><canvas id="' + compareChartId + '" style="max-height:400px;width:100%;"></canvas></div>';
+  
+  setTimeout(function() {
+    var ctx = document.getElementById(compareChartId);
+    if (!ctx) return;
+    if (window._chartInstances && window._chartInstances[compareChartId]) {
+      window._chartInstances[compareChartId].destroy();
+    }
+    if (!window._chartInstances) window._chartInstances = {};
+    
+    var allPoints = [];
+    parsedData.graphs.forEach(function(g) {
+      if (g.points) {
+        g.points.forEach(function(p) {
+          allPoints.push(p.x !== undefined ? p.x : 0);
+        });
+      }
+    });
+    
+    var minX = Infinity, maxX = -Infinity;
+    var minY = Infinity, maxY = -Infinity;
+    parsedData.graphs.forEach(function(g) {
+      if (g.points) {
+        g.points.forEach(function(p) {
+          var x = p.x !== undefined ? p.x : 0;
+          var y = p.y !== undefined ? p.y : 0;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        });
+      }
+    });
+    
+    if (minX === Infinity) { minX = 0; maxX = 10; }
+    if (minY === Infinity) { minY = 0; maxY = 10; }
+    var paddingX = (maxX - minX) * 0.1 || 1;
+    var paddingY = (maxY - minY) * 0.1 || 1;
+    
+    var datasets = parsedData.graphs.map(function(g, i) {
+      var color = colors[i % colors.length];
+      var data = [];
+      if (g.points) {
+        data = g.points.map(function(p) {
+          return { x: p.x !== undefined ? p.x : 0, y: p.y !== undefined ? p.y : 0 };
+        });
+      }
+      return {
+        label: g.label || 'Series ' + (i+1),
+        data: data,
+        borderColor: color,
+        backgroundColor: color + '20',
+        pointRadius: 4,
+        pointBackgroundColor: color,
+        tension: 0.3,
+        showLine: true,
+        fill: false
+      };
+    });
+    
+    var cc = {
+      type: 'scatter',
+      data: { datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { display: true, text: parsedData.title || 'Comparison Chart', font: { size: 16, weight: 'bold' } },
+          legend: { position: 'bottom' }
+        },
+        scales: {
+          x: { 
+            type: 'linear',
+            min: minX - paddingX,
+            max: maxX + paddingX,
+            grid: { color: '#e0e0e0' },
+            title: { display: true, text: parsedData.xAxis?.label || '' }
+          },
+          y: {
+            min: minY - paddingY,
+            max: maxY + paddingY,
+            grid: { color: '#e0e0e0' },
+            title: { display: true, text: parsedData.yAxis?.label || '' }
+          }
+        }
+      }
+    };
+    
+    var canvas = document.getElementById(compareChartId);
+    if (canvas && cc) {
+      canvas.parentElement.style.height = '400px';
+      window._chartInstances[compareChartId] = new Chart(canvas, cc);
+    }
+  }, 100);
+  
+  return compareHtml;
+}
+
+
+
+    
   // UNSUPPORTED
   else {
     return '<div style="padding:10px;text-align:center;color:#999;border:1px dashed #ddd;border-radius:8px;margin:15px 0;">' +
