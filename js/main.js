@@ -2470,20 +2470,15 @@ else if (parsedData.type === 'coordinate-plane') {
     var graphW = w - padding * 2;
     var graphH = h - padding * 2;
     
-    // ============================================================
-    // toScreen 함수 (반드시 여기에 정의!)
-    // ============================================================
     function toScreen(px, py) {
       var sx = padding + ((px - xMin) / (xMax - xMin)) * graphW;
       var sy = padding + graphH - ((py - yMin) / (yMax - yMin)) * graphH;
       return { x: sx, y: sy };
     }
     
-    // 배경
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, w, h);
     
-    // 그리드
     if (parsedData.grid !== false) {
       ctx.strokeStyle = '#f0f0f0';
       ctx.lineWidth = 1;
@@ -2507,7 +2502,6 @@ else if (parsedData.type === 'coordinate-plane') {
       }
     }
     
-    // 축
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 2;
     var origin = toScreen(0, 0);
@@ -2524,7 +2518,6 @@ else if (parsedData.type === 'coordinate-plane') {
       ctx.stroke();
     }
     
-    // 화살표
     ctx.fillStyle = '#333';
     if (origin.x >= padding && origin.x <= padding + graphW) {
       ctx.beginPath();
@@ -2541,7 +2534,6 @@ else if (parsedData.type === 'coordinate-plane') {
       ctx.fill();
     }
     
-    // 축 레이블
     ctx.fillStyle = '#555';
     ctx.font = '12px sans-serif';
     ctx.textAlign = 'center';
@@ -2551,13 +2543,9 @@ else if (parsedData.type === 'coordinate-plane') {
     ctx.textBaseline = 'bottom';
     ctx.fillText(parsedData.yAxis?.label || 'y', 12, padding);
     
-    // ============================================================
-    // 눈금 및 값 표시 (tick)
-    // ============================================================
     var xTick = parsedData.xAxis?.tick || 1;
     var yTick = parsedData.yAxis?.tick || 1;
     
-    // x축 눈금
     ctx.fillStyle = '#555';
     ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
@@ -2575,7 +2563,6 @@ else if (parsedData.type === 'coordinate-plane') {
       ctx.fillText(x, pos.x, origin.y + 8);
     }
     
-    // y축 눈금
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     
@@ -2591,9 +2578,6 @@ else if (parsedData.type === 'coordinate-plane') {
       ctx.fillText(y, origin.x - 8, pos.y);
     }
     
-    // ============================================================
-    // 점 표시 (points)
-    // ============================================================
     if (parsedData.points) {
       parsedData.points.forEach(function(pt) {
         var screen = toScreen(pt.x, pt.y);
@@ -2614,9 +2598,6 @@ else if (parsedData.type === 'coordinate-plane') {
       });
     }
     
-    // ============================================================
-    // 선분 표시 (segments) - toScreen 사용
-    // ============================================================
     if (parsedData.segments) {
       parsedData.segments.forEach(function(seg) {
         var from = toScreen(seg.from[0], seg.from[1]);
@@ -2630,9 +2611,6 @@ else if (parsedData.type === 'coordinate-plane') {
       });
     }
     
-    // ============================================================
-    // 곡선 표시 (series) - line + curve 모두 지원
-    // ============================================================
     if (parsedData.series) {
       parsedData.series.forEach(function(ser) {
         if ((ser.type === 'line' || ser.type === 'curve') && ser.points) {
@@ -2650,9 +2628,6 @@ else if (parsedData.type === 'coordinate-plane') {
       });
     }
     
-    // ============================================================
-    // 함수 곡선 표시 (functions 배열) - Math.js 사용
-    // ============================================================
     if (parsedData.functions && Array.isArray(parsedData.functions)) {
       parsedData.functions.forEach(function(func) {
         var equation = func.equation || '';
@@ -2706,9 +2681,6 @@ else if (parsedData.type === 'coordinate-plane') {
       });
     }
     
-    // ============================================================
-    // 레이블 표시 (labels) - toScreen 사용
-    // ============================================================
     if (parsedData.labels) {
       parsedData.labels.forEach(function(label) {
         var screen = toScreen(label.x, label.y);
@@ -2724,6 +2696,8 @@ else if (parsedData.type === 'coordinate-plane') {
   
   return coordHtml;
 }
+  
+
 
   
   
