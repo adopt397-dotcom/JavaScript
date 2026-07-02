@@ -2125,8 +2125,8 @@ function renderGraphic(jsonData) {
     return funcHtml;
   }
 
- // ============================================================
-// 11. COORDINATE-PLANE (신규) - line + curve 지원
+// ============================================================
+// 11. COORDINATE-PLANE (신규) - line + curve + functions 지원
 // ============================================================
 else if (parsedData.type === 'coordinate-plane') {
   var coordCanvasId = 'coord_' + Math.random().toString(36).substr(2, 9);
@@ -2135,8 +2135,13 @@ else if (parsedData.type === 'coordinate-plane') {
     '</div>';
   
   setTimeout(function() {
+    console.log("✅ coordinate-plane version 2026 - functions support added");
+    
     var canvas = document.getElementById(coordCanvasId);
-    if (!canvas) return;
+    if (!canvas) {
+      console.error("❌ Canvas not found!");
+      return;
+    }
     
     var rect = canvas.parentElement.getBoundingClientRect();
     var dpr = window.devicePixelRatio || 1;
@@ -2335,14 +2340,24 @@ else if (parsedData.type === 'coordinate-plane') {
     // ============================================================
     // 함수 곡선 표시 (functions 배열) - Math.js 사용
     // ============================================================
+    console.log("🔍 Checking functions:", parsedData.functions);
+    
     if (parsedData.functions && Array.isArray(parsedData.functions)) {
+      console.log("✅ functions detected, count:", parsedData.functions.length);
+      console.log("🔍 math object:", typeof math);
+      
       parsedData.functions.forEach(function(func) {
         var equation = func.equation || '';
         var domain = func.domain || [xMin, xMax];
         var color = func.color || '#e74c3c';
         var lineWidth = func.lineWidth || 3;
         
-        if (!equation) return;
+        if (!equation) {
+          console.warn("⚠️ No equation in function");
+          return;
+        }
+        
+        console.log("📊 Drawing function:", equation);
         
         var expr = equation.replace(/y\s*=\s*/, '');
         var samples = 500;
@@ -2351,6 +2366,10 @@ else if (parsedData.type === 'coordinate-plane') {
         
         for (var xVal = domain[0]; xVal <= domain[1]; xVal += step) {
           try {
+            if (typeof math === 'undefined') {
+              console.error("❌ Math.js not loaded!");
+              return;
+            }
             var node = math.parse(expr);
             var yVal = node.evaluate({ x: xVal });
             if (typeof yVal === 'number' && isFinite(yVal) && yVal >= yMin && yVal <= yMax) {
@@ -2359,6 +2378,7 @@ else if (parsedData.type === 'coordinate-plane') {
               points.push({ x: xVal, y: NaN });
             }
           } catch(e) {
+            console.warn("⚠️ Error evaluating at x=" + xVal, e.message);
             points.push({ x: xVal, y: NaN });
           }
         }
@@ -2385,7 +2405,10 @@ else if (parsedData.type === 'coordinate-plane') {
             ctx.stroke();
           }
         }
+        console.log("✅ Function drawn:", equation);
       });
+    } else {
+      console.log("ℹ️ No functions to draw");
     }
     
   }, 100);
