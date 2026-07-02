@@ -1406,100 +1406,99 @@ function renderGraphic(jsonData) {
   // ============================================================
   // 2. BAR
   // ============================================================
-  else if (parsedData.type === 'bar') {
-    var labels = [];
-    var datasets = [];
-    var chartTitle = parsedData.title || 'Bar Chart';
-    var xLabel = parsedData.xAxis?.label || '';
-    var yLabel = parsedData.yAxis?.label || '';
-    var yMin = parsedData.yAxis?.min || 0;
-    var yMax = parsedData.yAxis?.max || undefined;
-    
-    function normalizeArray(arr) {
-      if (typeof arr === 'string') {
-        try { return JSON.parse(arr); } catch(e) { return arr.split(',').map(function(v) { return v.trim(); }); }
-      }
-      if (!Array.isArray(arr)) return [];
-      return arr;
-    }
-    
-    if (parsedData.labels && parsedData.values) {
-      labels = normalizeArray(parsedData.labels);
-      var values = parsedData.values;
-      if (typeof values === 'string') {
-        try { values = JSON.parse(values); } catch(e) { values = values.split(',').map(function(v) { return parseFloat(v.trim()); }); }
-      }
-      if (!Array.isArray(values)) values = [];
-      datasets = [{
-        label: parsedData.label || 'Data',
-        data: values,
-        backgroundColor: parsedData.color || '#3498db80',
-        borderColor: parsedData.stroke || '#3498db',
+
+else if (parsedData.type === 'bar') {
+  console.log("✅ BAR rendering started");
+  
+  var labels = [];
+  var datasets = [];
+  var chartTitle = parsedData.title || 'Bar Chart';
+  var xLabel = parsedData.xAxis?.label || '';
+  var yLabel = parsedData.yAxis?.label || '';
+  var yMin = parsedData.yAxis?.min !== undefined ? parsedData.yAxis.min : 0;
+  var yMax = parsedData.yAxis?.max !== undefined ? parsedData.yAxis.max : undefined;
+  
+  // labels 처리
+  if (parsedData.labels) {
+    labels = parsedData.labels;
+  } else if (parsedData.xAxis?.categories) {
+    labels = parsedData.xAxis.categories;
+  }
+  
+  // datasets 처리
+  if (parsedData.series && Array.isArray(parsedData.series)) {
+    datasets = parsedData.series.map(function(s, i) {
+      var color = colors[i % colors.length];
+      var data = s.data || [];
+      return {
+        label: s.name || 'Series ' + (i+1),
+        data: data,
+        backgroundColor: color + '80',
+        borderColor: color,
         borderWidth: 2
-      }];
-    } else if (parsedData.series) {
-      var series = normalizeArray(parsedData.series);
-      labels = normalizeArray(parsedData.categories || parsedData.xAxis?.ticks || []);
-      datasets = series.map(function(s, i) {
-        var values = s.values || [];
-        if (typeof values === 'string') {
-          try { values = JSON.parse(values); } catch(e) { values = values.split(',').map(function(v) { return parseFloat(v.trim()); }); }
-        }
-        if (!Array.isArray(values)) values = [];
-        return {
-          label: s.name || 'Series ' + (i+1),
-          data: values,
-          backgroundColor: colors[i % colors.length] + '80',
-          borderColor: colors[i % colors.length],
-          borderWidth: 2
-        };
-      });
+      };
+    });
+  } else if (parsedData.values) {
+    datasets = [{
+      label: parsedData.label || 'Data',
+      data: parsedData.values,
+      backgroundColor: parsedData.color || '#3498db80',
+      borderColor: parsedData.stroke || '#3498db',
+      borderWidth: 2
+    }];
+  }
+  
+  console.log("📊 labels:", labels);
+  console.log("📊 datasets:", datasets);
+  
+  if (datasets.length === 0 || datasets.every(function(d) { return d.data.length === 0; })) {
+    return '<div style="padding:10px;color:#999;text-align:center;">📊 No data for bar chart</div>';
+  }
+  
+  setTimeout(function() {
+    var ctx = document.getElementById(chartId);
+    if (!ctx) {
+      console.error("❌ Canvas not found for bar chart!");
+      return;
     }
-    
-    if (datasets.length === 0 || datasets.every(function(d) { return d.data.length === 0; })) {
-      return '<div style="padding:10px;color:#999;text-align:center;">📊 No data for bar chart</div>';
+    if (window._chartInstances && window._chartInstances[chartId]) {
+      window._chartInstances[chartId].destroy();
     }
+    if (!window._chartInstances) window._chartInstances = {};
     
-    setTimeout(function() {
-      var ctx = document.getElementById(chartId);
-      if (!ctx) return;
-      if (window._chartInstances && window._chartInstances[chartId]) {
-        window._chartInstances[chartId].destroy();
-      }
-      if (!window._chartInstances) window._chartInstances = {};
-      
-      var cc = {
-        type: 'bar',
-        data: { labels: labels, datasets: datasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            title: { display: true, text: chartTitle, font: { size: 16, weight: 'bold' } },
-            legend: { position: 'bottom' }
-          },
-          scales: {
-            x: { title: { display: true, text: xLabel }, grid: { color: '#e0e0e0' } },
-            y: { 
-              beginAtZero: true, 
-              title: { display: true, text: yLabel }, 
-              grid: { color: '#e0e0e0' }, 
-              min: yMin, 
-              max: yMax 
-            }
+    var cc = {
+      type: 'bar',
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { display: true, text: chartTitle, font: { size: 16, weight: 'bold' } },
+          legend: { position: 'bottom' }
+        },
+        scales: {
+          x: { title: { display: true, text: xLabel }, grid: { color: '#e0e0e0' } },
+          y: { 
+            beginAtZero: true, 
+            title: { display: true, text: yLabel }, 
+            grid: { color: '#e0e0e0' }, 
+            min: yMin, 
+            max: yMax 
           }
         }
-      };
-      
-      var canvas = document.getElementById(chartId);
-      if (canvas && cc) {
-        canvas.parentElement.style.height = '400px';
-        window._chartInstances[chartId] = new Chart(canvas, cc);
       }
-    }, 100);
+    };
     
-    return html;
-  }
+    var canvas = document.getElementById(chartId);
+    if (canvas && cc) {
+      canvas.parentElement.style.height = '400px';
+      window._chartInstances[chartId] = new Chart(canvas, cc);
+      console.log("✅ Bar chart rendered!");
+    }
+  }, 100);
+  
+  return html;
+}
   
   // ============================================================
   // 3. PIE
