@@ -2696,7 +2696,6 @@ else if (parsedData.type === 'coordinate-plane') {
   
   return coordHtml;
 }
-  
 
 
   
