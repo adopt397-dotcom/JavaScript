@@ -1605,11 +1605,12 @@ else if (parsedData.type === 'bar') {
     return html;
   }
   
- // ============================================================
+// ============================================================
 // 5. SCATTER (series + points 모두 지원)
 // ============================================================
 else if (parsedData.type === 'scatter') {
   console.log("✅ SCATTER rendering started");
+  console.log("📊 parsedData:", parsedData);
   
   setTimeout(function() {
     var ctx = document.getElementById(chartId);
@@ -1624,7 +1625,7 @@ else if (parsedData.type === 'scatter') {
     
     var datasets = [];
     
-    // ===== series 배열이 있으면 각 series를 dataset으로 변환 =====
+    // ===== series 배열 처리 =====
     if (parsedData.series && Array.isArray(parsedData.series)) {
       parsedData.series.forEach(function(ser, i) {
         var color = colors[i % colors.length];
@@ -1640,7 +1641,7 @@ else if (parsedData.type === 'scatter') {
         });
       });
     }
-    // ===== points가 직접 있으면 단일 dataset =====
+    // ===== points 직접 사용 =====
     else if (parsedData.points) {
       var points = parsedData.points.map(function(p) {
         return { x: p.x, y: p.y };
