@@ -2,6 +2,7 @@
 // x T123-1 + T123-2 + T123-3 + T123-4 통합 (GitHub용 - 완전한 버전)  x
 // ============================================================
 
+
 var LANG = {
   enterNumber: "Enter Starting Number",
   enterSub: "Enter the question number to begin",
@@ -61,7 +62,7 @@ var LANG = {
 
 var API_URL = "https://script.google.com/macros/s/AKfycbx-S88kC_Ii_MxbibHmmHQYK_ITc1U9jphAxJ-uV0NSBGMFUidA3ItBE0niKhUyW32oMA/exec";
 var STORAGE_KEY = 'quiz_progress_main';
-var TOTAL_CACHE_KEY = 'quiz_total_questions';1
+var TOTAL_CACHE_KEY = 'quiz_total_questions';
 var QUESTIONS_PER_SET = 120;
 var TOTAL_QUESTIONS = 0;
 var masterQuestions = [];
@@ -474,6 +475,11 @@ async function load50Questions(uiStartNumber) {
     return [];
   }
 }
+
+// ============================================================
+// 퀴즈 네비게이션 함수들
+// ============================================================
+
 function goNext() {
   if (currentIndex < currentQuestions.length - 1) {
     currentIndex++;
@@ -524,6 +530,28 @@ function submitSubjective() {
   if (isCorrect) correctCount++;
   saveProgress();
   renderCurrentQuestion();
+}
+
+function getWrongSkippedUnansweredIndices() {
+  var result = [];
+  for (var i = 0; i < currentQuestions.length; i++) {
+    var q = currentQuestions[i];
+    var ans = userAnswers[i];
+    var isUnanswered = (ans === null || ans === undefined);
+    var isSkipped = (ans === -1);
+    var isSubjective = isSubjectiveQuestion(q);
+    var isIncorrect = false;
+    if (!isUnanswered && !isSkipped) {
+      if (isSubjective) {
+        var correctAns = q.A || q.answer || '';
+        isIncorrect = !(String(ans).trim() === String(correctAns).trim());
+      } else {
+        isIncorrect = (ans !== parseInt(q.answer));
+      }
+    }
+    if (isUnanswered || isSkipped || isIncorrect) result.push(i);
+  }
+  return result;
 }
 
 function showResults() {
@@ -643,26 +671,688 @@ function startWrongOnlyReview() {
   saveProgress();
 }
 
-function getWrongSkippedUnansweredIndices() {
-  var result = [];
-  for (var i = 0; i < currentQuestions.length; i++) {
-    var q = currentQuestions[i];
-    var ans = userAnswers[i];
-    var isUnanswered = (ans === null || ans === undefined);
-    var isSkipped = (ans === -1);
-    var isSubjective = isSubjectiveQuestion(q);
-    var isIncorrect = false;
-    if (!isUnanswered && !isSkipped) {
-      if (isSubjective) {
-        var correctAns = q.A || q.answer || '';
-        isIncorrect = !(String(ans).trim() === String(correctAns).trim());
-      } else {
-        isIncorrect = (ans !== parseInt(q.answer));
+// ============================================================
+// 타이머 함수들
+// ============================================================
+
+var timerSeconds = 134 * 60;
+var timerInterval = null;
+var timerRunning = false;
+var timerPaused = false;
+
+function formatTimer(seconds) {
+  var hrs = Math.floor(seconds / 3600);
+  var mins = Math.floor((seconds % 3600) / 60);
+  var secs = seconds % 60;
+  return String(hrs).padStart(2, '0') + ':' + 
+         String(mins).padStart(2, '0') + ':' + 
+         String(secs).padStart(2, '0');
+}
+
+function updateTimerDisplay() {
+  var display = document.getElementById('timerDisplay');
+  if (display) {
+    display.textContent = formatTimer(timerSeconds);
+    if (timerSeconds < 300) {
+      display.classList.add('warning');
+    } else {
+      display.classList.remove('warning');
+    }
+  }
+}
+
+function startTimer() {
+  if (timerInterval) return;
+  timerRunning = true;
+  timerPaused = false;
+  var btn = document.getElementById('timerPauseBtn');
+  if (btn) btn.textContent = '⏸ Pause';
+  timerInterval = setInterval(function() {
+    if (timerSeconds > 0) {
+      timerSeconds--;
+      updateTimerDisplay();
+      if (timerSeconds === 0) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        timerRunning = false;
+        alert('⏰ Time is up!');
       }
     }
-    if (isUnanswered || isSkipped || isIncorrect) result.push(i);
+  }, 1000);
+}
+
+function pauseTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    timerRunning = false;
+    timerPaused = true;
+    var btn = document.getElementById('timerPauseBtn');
+    if (btn) btn.textContent = '▶ Resume';
+  } else if (timerPaused) {
+    startTimer();
   }
-  return result;
+}
+
+function resetTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  timerSeconds = 134 * 60;
+  timerRunning = false;
+  timerPaused = false;
+  var btn = document.getElementById('timerPauseBtn');
+  if (btn) btn.textContent = '⏸ Pause';
+  updateTimerDisplay();
+}
+
+function initTimer() {
+  updateTimerDisplay();
+  var pauseBtn = document.getElementById('timerPauseBtn');
+  var resetBtn = document.getElementById('timerResetBtn');
+  if (pauseBtn) pauseBtn.addEventListener('click', pauseTimer);
+  if (resetBtn) resetBtn.addEventListener('click', function() {
+    if (confirm('Reset timer?')) resetTimer();
+  });
+}
+
+// ============================================================
+// 렌더링 함수들
+// ============================================================
+
+function renderSubjectiveQuestion(q, answered, headerText, passageHtml) {
+  var isAnswered = (answered !== null && answered !== undefined && answered !== -1);
+  if (!isAnswered) {
+    DOM.explanationBox.classList.remove('show');
+    DOM.explanationText.innerHTML = '';
+  }
+  var correctAnswerText = '';
+  if (q.A && q.A !== '') {
+    correctAnswerText = String(q.A).trim();
+  } else if (q.answer && q.answer !== '' && q.answer !== '0') {
+    correctAnswerText = String(q.answer).trim();
+  } else {
+    correctAnswerText = 'Answer not available';
+  }
+  var html = '<div class="question-card">' +
+    '<div class="q-num">' + headerText + '</div>' +
+    passageHtml +
+    renderGraphic(q.graphic) +
+    '<div class="question-text">' + escapeHtml(q.question) + '</div>';
+  if (isAnswered) {
+    var userAns = String(answered).trim();
+    var isCorrect = (userAns === correctAnswerText) || (parseFloat(userAns) === parseFloat(correctAnswerText));
+    var statusColor = isCorrect ? '#27ae60' : '#e74c3c';
+    html += '<div style="margin-top:15px;padding:15px;background:#f8f9fa;border-radius:8px;border-left:4px solid #666;">' +
+      '<div style="font-size:14px;color:#666;">Your answer: <strong>' + escapeHtml(userAns) + '</strong></div>' +
+      '</div>' +
+      '<div class="subjective-result" style="background:' + statusColor + ';">' +
+      'Answer: ' + escapeHtml(correctAnswerText) +
+      '</div>' +
+      '<div class="subjective-explanation">' +
+      '<strong>Explanation</strong>' +
+      '<p style="margin-top:8px;">' + escapeHtml(q.explanation || 'No explanation available.') + '</p>' +
+      '</div>';
+  } else {
+    html += '<div class="subjective-input-group">' +
+      '<input type="text" id="subjectiveInput" placeholder="Enter your answer" onkeypress="if(event.key===\'Enter\') submitSubjective()">' +
+      '<button onclick="submitSubjective()">Submit</button>' +
+      '</div>';
+  }
+  html += '</div></div>';
+  DOM.questionContainer.innerHTML = html;
+  var isLastQuestion = (currentIndex >= currentQuestions.length - 1);
+  if (isLastQuestion) {
+    DOM.nextBtn.style.display = 'none';
+    DOM.submitBtn.style.display = 'inline-block';
+    DOM.submitBtn.innerHTML = 'SUBMIT (Enter)';
+    var isAnswered2 = (userAnswers[currentIndex] !== null && userAnswers[currentIndex] !== undefined && userAnswers[currentIndex] !== -1);
+    DOM.submitBtn.disabled = !isAnswered2;
+    DOM.submitBtn.style.background = isAnswered2 ? '#27ae60' : '#95a5a6';
+    DOM.submitBtn.style.color = isAnswered2 ? 'white' : '#666';
+  } else {
+    DOM.nextBtn.style.display = 'inline-block';
+    DOM.nextBtn.innerHTML = 'NEXT (N)';
+    DOM.submitBtn.style.display = 'none';
+  }
+  DOM.prevBtn.disabled = (currentIndex === 0);
+}
+
+function renderCurrentQuestion() {
+  console.log('🔴 renderCurrentQuestion START');
+  
+  if (!currentQuestions.length || currentIndex >= currentQuestions.length) {
+    DOM.questionContainer.innerHTML = '<div style="padding:40px;text-align:center;color:red;">Error: Cannot load question</div>';
+    return;
+  }
+  
+  var q = currentQuestions[currentIndex];
+  if (!q) {
+    DOM.questionContainer.innerHTML = '<div style="padding:40px;text-align:center;color:red;">Error: Invalid question data</div>';
+    return;
+  }
+  
+  console.log('🔍 Current question:', q);
+  console.log('🔍 q.question:', q.question);
+  console.log('🔍 q.choices:', q.choices);
+  
+  var answered = userAnswers[currentIndex];
+  updateProgressDisplay();
+  
+  var actualNumber = q.originalNumber || (currentStartNumber + currentIndex);
+  var headerText = LANG.qPrefix + ' ' + (currentIndex + 1) + ' ' + LANG.of + ' ' + currentQuestions.length + ' ' + LANG.originalPrefix + actualNumber + LANG.originalSuffix;
+  if (isReviewMode) {
+    headerText = LANG.reviewModeQuestionPrefix + ' ' + (currentIndex + 1) + ' ' + LANG.of + ' ' + currentQuestions.length + ' ' + LANG.originalPrefix + actualNumber + LANG.originalSuffix;
+  }
+  
+  var hasChoices = hasRealChoices(q);
+  var isSubjective = !hasChoices;
+  var passageHtml = '';
+  var displayPassage = q.passage || '';
+  if (displayPassage && displayPassage.trim() !== '' && displayPassage.trim() !== 'No passage.') {
+    passageHtml = '<div style="background:#f8f9fa;padding:15px;border-radius:8px;margin:10px 0;border:1px solid #dee2e6;">' +
+      '<div style="white-space:pre-wrap;font-size:15px;line-height:1.7;">' +
+      escapeHtml(displayPassage) + '</div>' +
+      '</div>';
+  }
+  
+  if (isSubjective) {
+    renderSubjectiveQuestion(q, answered, headerText, passageHtml);
+    return;
+  }
+  
+  var validKeys = getValidChoiceKeys(q.choices);
+  var originalAnswerKey = String(q.answer);
+  var originalAnswerText = q.choices[originalAnswerKey] || '';
+  var actualAnswerKey = null;
+  for (var i = 0; i < validKeys.length; i++) {
+    var key = validKeys[i];
+    if (q.choices[key] === originalAnswerText) {
+      actualAnswerKey = key;
+      break;
+    }
+  }
+  var displayAnswer = actualAnswerKey !== null ? validKeys.indexOf(actualAnswerKey) + 1 : parseInt(originalAnswerKey);
+  
+  var html = '<div class="question-card">' +
+    '<div class="q-num">' + headerText + '</div>' +
+    passageHtml +
+    renderGraphic(q.graphic) +
+    '<div class="question-text">' + escapeHtml(q.question || 'No question text') + '</div>' +
+    '<div class="choices">';
+  
+  for (var idx = 0; idx < validKeys.length; idx++) {
+    var key = validKeys[idx];
+    var choiceNum = parseInt(key);
+    var letter = getAnswerLetter(idx + 1);
+    var choiceText = q.choices[key] || 'Option ' + letter;
+    var isSelected = (answered === choiceNum);
+    var isCorrectChoice = (choiceNum === displayAnswer);
+    var showCorrect = (answered !== null && answered !== undefined && answered !== -1);
+    var cls = 'choice';
+    if (showCorrect) {
+      cls += ' disabled';
+      if (isCorrectChoice) cls += ' correct';
+      if (isSelected && !isCorrectChoice) cls += ' incorrect';
+    }
+    html += '<div class="' + cls + '" data-choice="' + choiceNum + '">' +
+      '<span class="choice-letter">' + letter + '</span>' +
+      '<span>' + escapeHtml(choiceText) + '</span>' +
+      '</div>';
+  }
+  html += '</div></div>';
+  
+  DOM.questionContainer.innerHTML = html;
+  console.log('✅ Question rendered');
+  
+  var choiceEls = DOM.questionContainer.querySelectorAll('.choice:not(.disabled)');
+  choiceEls.forEach(function(el) {
+    el.addEventListener('click', function() {
+      var choice = parseInt(el.getAttribute('data-choice'));
+      if (isNaN(choice)) return;
+      userAnswers[currentIndex] = choice;
+      if (choice === displayAnswer) correctCount++;
+      saveProgress();
+      renderCurrentQuestion();
+      showExplanation();
+    });
+  });
+  
+  if (answered !== null && answered !== undefined && answered !== -1) {
+    showExplanation();
+  } else {
+    DOM.explanationBox.classList.remove('show');
+  }
+  
+  var isLastQuestion = (currentIndex >= currentQuestions.length - 1);
+  if (isLastQuestion) {
+    DOM.nextBtn.style.display = 'none';
+    DOM.submitBtn.style.display = 'inline-block';
+    DOM.submitBtn.innerHTML = 'SUBMIT (Enter)';
+    var isAnswered = (answered !== null && answered !== undefined && answered !== -1);
+    DOM.submitBtn.disabled = !isAnswered;
+    DOM.submitBtn.style.background = isAnswered ? '#27ae60' : '#95a5a6';
+    DOM.submitBtn.style.color = isAnswered ? 'white' : '#666';
+  } else {
+    DOM.nextBtn.style.display = 'inline-block';
+    DOM.nextBtn.innerHTML = 'NEXT (N)';
+    DOM.submitBtn.style.display = 'none';
+  }
+  DOM.prevBtn.disabled = (currentIndex === 0);
+}
+
+function showExplanation() {
+  var q = currentQuestions[currentIndex];
+  var ans = userAnswers[currentIndex];
+  if (!q || ans === null || ans === undefined || ans === -1) {
+    DOM.explanationBox.classList.remove('show');
+    return;
+  }
+  var hasChoices = hasRealChoices(q);
+  if (!hasChoices) {
+    var correctAns = '';
+    if (q.A && q.A !== '') {
+      correctAns = String(q.A).trim();
+    } else if (q.answer && q.answer !== '' && q.answer !== '0') {
+      correctAns = String(q.answer).trim();
+    } else {
+      correctAns = 'Answer not available';
+    }
+    var userAns = String(ans).trim();
+    var isCorrect = (userAns === correctAns) || (parseFloat(userAns) === parseFloat(correctAns));
+    var statusColor = isCorrect ? '#27ae60' : '#e74c3c';
+    DOM.explanationText.innerHTML =
+      '<div style="background:' + statusColor + ';color:white;padding:8px 16px;border-radius:6px;display:inline-block;font-weight:700;margin-bottom:15px;">' +
+      'Answer: ' + escapeHtml(correctAns) +
+      '</div>' +
+      '<div style="margin-top:8px;font-size:14px;color:#555;">' +
+      'Your answer: <strong>' + escapeHtml(userAns) + '</strong>' +
+      '</div>' +
+      '<p style="margin-top:12px;">' + escapeHtml(q.explanation || LANG.noExplanation) + '</p>';
+    DOM.explanationBox.classList.add('show');
+    return;
+  }
+  var validKeys = getValidChoiceKeys(q.choices);
+  var originalAnswerKey = String(q.answer);
+  var originalAnswerText = q.choices[originalAnswerKey] || '';
+  var actualAnswerKey = null;
+  for (var i = 0; i < validKeys.length; i++) {
+    var key = validKeys[i];
+    if (q.choices[key] === originalAnswerText) {
+      actualAnswerKey = key;
+      break;
+    }
+  }
+  var displayAnswerIndex = actualAnswerKey !== null ? validKeys.indexOf(actualAnswerKey) + 1 : parseInt(originalAnswerKey);
+  var userAnswerLetter = getAnswerLetter(ans);
+  var correctAnswerLetter = getAnswerLetter(displayAnswerIndex);
+  var isCorrect = (ans === displayAnswerIndex);
+  var statusColor = isCorrect ? '#27ae60' : '#e74c3c';
+  DOM.explanationText.innerHTML =
+    '<div style="background:' + statusColor + ';color:white;padding:8px 16px;border-radius:6px;display:inline-block;font-weight:700;margin-bottom:15px;">' +
+    'Answer: ' + correctAnswerLetter +
+    '</div>' +
+    '<div style="margin-top:8px;font-size:14px;color:#555;">' +
+    'Your answer: <strong>' + userAnswerLetter + '</strong>' +
+    '</div>' +
+    '<p style="margin-top:12px;">' + escapeHtml(q.explanation || LANG.noExplanation) + '</p>';
+  DOM.explanationBox.classList.add('show');
+}
+
+// ============================================================
+// 이벤트 및 초기화 함수들
+// ============================================================
+
+function attachKeyboardEvents() {
+  document.addEventListener('keydown', function(event) {
+    if (event.ctrlKey && (event.key === 'c' || event.key === 'v' || event.key === 'x' || event.key === 'a' ||
+        event.key === 'C' || event.key === 'V' || event.key === 'X' || event.key === 'A')) {
+      return;
+    }
+    if (!DOM.quizContent || DOM.quizContent.style.display === 'none' || DOM.quizContent.style.display === '') return;
+    if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+    var key = event.key;
+    if (key === 'n' || key === 'N' || key === 'L') {
+      event.preventDefault();
+      if (currentIndex < currentQuestions.length - 1) goNext();
+      return;
+    }
+    if (key === 'p' || key === 'P' || key === 'H') {
+      event.preventDefault();
+      if (currentIndex > 0) goPrev();
+      return;
+    }
+    if (key === 's' || key === 'S' || key === 'A') {
+      event.preventDefault();
+      skipQuestion();
+      return;
+    }
+    if (key === 'Enter') {
+      if (currentIndex >= currentQuestions.length - 1 && DOM.submitBtn && DOM.submitBtn.style.display !== 'none') {
+        var isAnswered = (userAnswers[currentIndex] !== null && userAnswers[currentIndex] !== undefined && userAnswers[currentIndex] !== -1);
+        if (isAnswered) {
+          event.preventDefault();
+          showResults();
+        }
+      }
+      return;
+    }
+    if (key === 'ArrowLeft') {
+      event.preventDefault();
+      if (currentIndex > 0) goPrev();
+      return;
+    }
+    if (key === 'ArrowRight') {
+      event.preventDefault();
+      if (currentIndex < currentQuestions.length - 1) goNext();
+      return;
+    }
+  });
+}
+
+function attachEvents() {
+  var continueBtn = document.getElementById('progressContinueBtn');
+  if (continueBtn) {
+    continueBtn.addEventListener('click', function() {
+      var modal = document.getElementById('progressModal');
+      var savedData = modal.getAttribute('data-saved');
+      if (savedData) {
+        var saved = JSON.parse(savedData);
+        modal.style.display = 'none';
+        resumeProgress(saved);
+      }
+    });
+  }
+  var cancelBtn = document.getElementById('progressCancelBtn');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', function() {
+      var modal = document.getElementById('progressModal');
+      modal.style.display = 'none';
+      clearProgress();
+      var startNum = parseInt(document.getElementById('startNumber').value) || 1;
+      startQuizWithNumber(startNum);
+    });
+  }
+  DOM.startQuizBtn.addEventListener('click', function() {
+    var startNum = parseInt(DOM.startNumberInput.value);
+    if (isNaN(startNum) || DOM.startNumberInput.value === "") startNum = 1;
+    if (startNum < 1) startNum = 1;
+    if (startNum > TOTAL_QUESTIONS) startNum = TOTAL_QUESTIONS;
+    clearProgress();
+    startQuizWithNumber(startNum);
+  });
+  DOM.startNumberInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      DOM.startQuizBtn.click();
+    }
+  });
+  DOM.prevBtn.addEventListener('click', goPrev);
+  DOM.nextBtn.addEventListener('click', goNext);
+  DOM.skipBtn.addEventListener('click', skipQuestion);
+  DOM.submitBtn.addEventListener('click', showResults);
+  DOM.quitBtn.addEventListener('click', function() {
+    saveProgress();
+    if (confirm(LANG.confirmExit)) window.location.reload();
+  });
+  DOM.retryAllBtn.addEventListener('click', function() {
+    clearProgress();
+    DOM.resultModal.style.display = 'none';
+    startQuizWithNumber(currentStartNumber);
+  });
+  DOM.reviewWrongBtn.addEventListener('click', function() {
+    DOM.resultModal.style.display = 'none';
+    showWrongAnswersList();
+  });
+  DOM.closeModalBtn.addEventListener('click', function() {
+    DOM.resultModal.style.display = 'none';
+  });
+  DOM.closeWrongBtn.addEventListener('click', function() {
+    DOM.wrongModal.style.display = 'none';
+  });
+  DOM.retryWrongFromReviewBtn.addEventListener('click', startWrongOnlyReview);
+  document.getElementById('splashRetry').addEventListener('click', function() {
+    document.getElementById('splashError').style.display = 'none';
+    document.getElementById('splashRetry').style.display = 'none';
+    document.getElementById('splashStatus').textContent = 'Retrying...';
+    initialize();
+  });
+  attachKeyboardEvents();
+}
+
+function showProgressModal(saved) {
+  var answered = saved.userAnswers.filter(function(a) { return a !== null && a !== -1; }).length;
+  var total = saved.currentQuestions.length;
+  var progress = saved.currentIndex + 1;
+  var body = document.getElementById('progressModalBody');
+  body.innerHTML = '<div style="padding:10px 0;">' +
+    '<p style="font-size:22px;font-weight:700;color:#2c3e50;text-align:center;margin-bottom:10px;">📊 Resume Session</p>' +
+    '<div style="background:#f8f9fa;border-radius:12px;padding:16px 20px;margin:15px 0;">' +
+    '<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Progress</span><strong>' + progress + ' / ' + total + '</strong></div>' +
+    '<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Answered</span><strong>' + answered + ' / ' + total + '</strong></div>' +
+    '<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Correct</span><strong>' + (saved.correctCount || 0) + '</strong></div>' +
+    '</div>' +
+    '<p style="font-size:13px;color:#999;text-align:center;margin-top:10px;">' +
+    'Click <strong>"Continue"</strong> to resume. Click <strong>"Start Fresh"</strong> to begin again.' +
+    '</p>' +
+    '</div>';
+  document.getElementById('progressModal').setAttribute('data-saved', JSON.stringify(saved));
+  document.getElementById('progressModal').style.display = 'flex';
+}
+
+function resumeProgress(saved) {
+  currentQuestions = saved.currentQuestions;
+  userAnswers = saved.userAnswers;
+  currentIndex = saved.currentIndex || 0;
+  correctCount = saved.correctCount || 0;
+  currentStartNumber = saved.currentStartNumber || 1;
+  isReviewMode = saved.isReviewMode || false;
+  if (saved.masterQuestions) masterQuestions = saved.masterQuestions;
+  if (saved.originalQuestions) originalQuestions = saved.originalQuestions;
+  startAutoSave();
+  DOM.setupSection.style.display = 'none';
+  DOM.quizMain.style.display = 'block';
+  if (DOM.quizContent) DOM.quizContent.style.display = 'block';
+  if (DOM.progressArea) DOM.progressArea.style.display = 'flex';
+  if (isReviewMode) {
+    DOM.reviewBanner.style.display = 'block';
+    DOM.reviewBanner.innerHTML = '<span>Review Mode: ' + currentQuestions.length + ' questions</span>' +
+      '<button id="exitReviewBtn" class="exit-review-btn">EXIT REVIEW</button>';
+    document.getElementById('exitReviewBtn').addEventListener('click', function() {
+      clearProgress();
+      window.location.reload();
+    });
+  }
+  renderCurrentQuestion();
+}
+
+function initialize() {
+  DOM.setupSection = document.getElementById('setupSection');
+  DOM.quizMain = document.getElementById('quizMain');
+  DOM.quizContent = document.getElementById('quizContent');
+  DOM.startNumberInput = document.getElementById('startNumber');
+  DOM.startQuizBtn = document.getElementById('startQuizBtn');
+  DOM.maxNumberSpan = document.getElementById('maxNumber');
+  DOM.progressText = document.getElementById('progressText');
+  DOM.quizProgressBar = document.getElementById('quizProgressBar');
+  DOM.questionContainer = document.getElementById('questionContainer');
+  DOM.explanationBox = document.getElementById('explanationBox');
+  DOM.explanationText = document.getElementById('explanationText');
+  DOM.prevBtn = document.getElementById('prevBtn');
+  DOM.nextBtn = document.getElementById('nextBtn');
+  DOM.skipBtn = document.getElementById('skipBtn');
+  DOM.submitBtn = document.getElementById('submitBtn');
+  DOM.quitBtn = document.getElementById('quitBtn');
+  DOM.resultModal = document.getElementById('resultModal');
+  DOM.correctCountSpan = document.getElementById('correctCount');
+  DOM.accuracyRateSpan = document.getElementById('accuracyRate');
+  DOM.resultGrid = document.getElementById('resultGrid');
+  DOM.retryAllBtn = document.getElementById('retryAllBtn');
+  DOM.reviewWrongBtn = document.getElementById('reviewWrongBtn');
+  DOM.closeModalBtn = document.getElementById('closeModalBtn');
+  DOM.wrongModal = document.getElementById('wrongModal');
+  DOM.wrongListDiv = document.getElementById('wrongList');
+  DOM.closeWrongBtn = document.getElementById('closeWrongBtn');
+  DOM.retryWrongFromReviewBtn = document.getElementById('retryWrongFromReviewBtn');
+  DOM.reviewBanner = document.getElementById('reviewBanner');
+  DOM.savedBadgeContainer = document.getElementById('savedBadgeContainer');
+  DOM.loadNextContainer = document.getElementById('loadNextContainer');
+  DOM.mainContainer = document.getElementById('mainContainer');
+  DOM.maxNumberDisplay = document.getElementById('maxNumberDisplay');
+  DOM.setSelector = document.getElementById('setSelector');
+  DOM.progressArea = document.querySelector('.progress-area');
+  if (!DOM.progressArea) {
+    DOM.progressArea = document.getElementById('progressArea');
+  }
+
+  initTimer();
+
+  updateSplash(10, 'Connecting to server...');
+  
+  setTimeout(async function() {
+    try {
+      await detectTotalQuestions();
+      
+      if (TOTAL_QUESTIONS === 0) {
+        TOTAL_QUESTIONS = 720;
+        localStorage.setItem(TOTAL_CACHE_KEY, String(TOTAL_QUESTIONS));
+      }
+      
+      updateSetSelector();
+      
+      updateSplash(60, 'Preparing data...');
+      
+      var maxStartNumber = TOTAL_QUESTIONS;
+      console.log('📊 Total questions: ' + TOTAL_QUESTIONS);
+      
+      if (DOM.maxNumberSpan) DOM.maxNumberSpan.style.display = 'none';
+      if (DOM.maxNumberDisplay) DOM.maxNumberDisplay.style.display = 'none';
+      
+      DOM.startNumberInput.placeholder = '1-' + TOTAL_QUESTIONS;
+      DOM.startNumberInput.max = TOTAL_QUESTIONS;
+      DOM.startNumberInput.min = 1;
+      
+      if (DOM.setSelector) {
+        DOM.setSelector.addEventListener('change', function() {
+          var setNum = parseInt(this.value);
+          if (!isNaN(setNum) && setNum >= 1) {
+            var startNum = (setNum - 1) * QUESTIONS_PER_SET + 1;
+            DOM.startNumberInput.value = startNum;
+            console.log('Set ' + setNum + ' selected, starting from question ' + startNum);
+          }
+        });
+        if (DOM.setSelector.options.length > 0) {
+          DOM.setSelector.value = '1';
+          DOM.startNumberInput.value = '';
+        }
+      }
+      
+      var saved = loadProgress();
+      if (saved && saved.currentQuestions && saved.currentQuestions.length > 0) {
+        var answered = saved.userAnswers.filter(function(a) { return a !== null && a !== -1; }).length;
+        var timeStr = new Date(saved.timestamp).toLocaleString();
+        DOM.savedBadgeContainer.innerHTML =
+          '<div class="resume-badge" id="resumeBadge">' +
+          '<div class="count">' + answered + ' / ' + saved.currentQuestions.length + ' answered</div>' +
+          '<div class="time">' + timeStr + '</div>' +
+          '<div class="hint">Click to resume</div>' +
+          '</div>';
+        var resumeBadge = document.getElementById('resumeBadge');
+        if (resumeBadge) {
+          resumeBadge.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var savedData = loadProgress();
+            if (savedData) showProgressModal(savedData);
+          });
+        }
+        var resumeCard = document.getElementById('resumeCard');
+        if (resumeCard) {
+          var newCard = resumeCard.cloneNode(true);
+          resumeCard.parentNode.replaceChild(newCard, resumeCard);
+          newCard.addEventListener('click', function() {
+            var savedData = loadProgress();
+            if (savedData) showProgressModal(savedData);
+          });
+        }
+      } else {
+        DOM.savedBadgeContainer.innerHTML = '<div class="no-session">' +
+          'No saved session' +
+          '<small>Start a new lesson</small>' +
+          '</div>';
+      }
+      
+      attachEvents();
+      
+      updateSplash(100, 'Ready!');
+      setTimeout(function() {
+        hideSplash();
+        DOM.setupSection.style.display = 'block';
+        DOM.quizMain.style.display = 'block';
+        
+        setTimeout(function() { DOM.startNumberInput.focus(); DOM.startNumberInput.select(); }, 150);
+        setTimeout(function() { DOM.startNumberInput.focus(); DOM.startNumberInput.select(); }, 400);
+        setTimeout(function() { DOM.startNumberInput.focus(); DOM.startNumberInput.select(); }, 700);
+        
+        console.log('✅ Initialization complete: ' + TOTAL_QUESTIONS + ' total questions');
+      }, 400);
+    } catch(e) {
+      console.error('Initialization error:', e);
+      showSplashError(e.message || 'Initialization failed');
+    }
+  }, 300);
+}
+
+async function startQuizWithNumber(uiStartNumber) {
+  if (isNaN(uiStartNumber) || uiStartNumber < 1) uiStartNumber = 1;
+  
+  if (uiStartNumber > TOTAL_QUESTIONS) {
+    console.log('🔄 Number ' + uiStartNumber + ' exceeds total ' + TOTAL_QUESTIONS + '. Looping back to 1.');
+    uiStartNumber = 1;
+  }
+  
+  var setNumber = Math.ceil(uiStartNumber / QUESTIONS_PER_SET);
+  var setStart = (setNumber - 1) * QUESTIONS_PER_SET + 1;
+  
+  var startNum = uiStartNumber;
+  if (uiStartNumber < setStart || uiStartNumber > Math.min(setNumber * QUESTIONS_PER_SET, TOTAL_QUESTIONS)) {
+    startNum = setStart;
+  }
+  
+  currentStartNumber = startNum;
+  
+  var overlay = showLoadingOverlay('Loading ' + QUESTIONS_PER_SET + ' questions from ' + startNum + '...');
+  try {
+    var questions = await load50Questions(startNum);
+    if (questions.length === 0) throw new Error('No question data received');
+    masterQuestions = questions.slice();
+    currentQuestions = masterQuestions.map(function(q) { return randomizeChoicesOnly(q); });
+    userAnswers = new Array(currentQuestions.length).fill(null);
+    correctCount = 0;
+    currentIndex = 0;
+    isReviewMode = false;
+    startAutoSave();
+    hideLoadingOverlay();
+    DOM.setupSection.style.display = 'none';
+    DOM.quizMain.style.display = 'block';
+    
+    if (DOM.quizContent) {
+      DOM.quizContent.style.display = 'block';
+    }
+    if (DOM.progressArea) {
+      DOM.progressArea.style.display = 'flex';
+    }
+    
+    renderCurrentQuestion();
+    
+    resetTimer();
+    startTimer();
+    
+  } catch(err) {
+    hideLoadingOverlay();
+    alert(LANG.loadError + ' ' + err.message);
+    console.error(err);
+  }
 }
 
 
