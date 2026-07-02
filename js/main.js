@@ -1605,53 +1605,106 @@ else if (parsedData.type === 'bar') {
     return html;
   }
   
-  // ============================================================
-  // 5. SCATTER
-  // ============================================================
-  else if (parsedData.type === 'scatter' && parsedData.points) {
-    setTimeout(function() {
-      var ctx = document.getElementById(chartId);
-      if (!ctx) return;
-      if (window._chartInstances && window._chartInstances[chartId]) {
-        window._chartInstances[chartId].destroy();
-      }
-      if (!window._chartInstances) window._chartInstances = {};
-      
-      var cc = {
-        type: 'scatter',
-        data: {
-          datasets: [{
-            label: parsedData.equation || parsedData.label || 'Data',
-            data: parsedData.points,
-            showLine: true,
-            borderColor: parsedData.color || '#3498db',
-            backgroundColor: (parsedData.color || '#3498db') + '20',
-            borderWidth: parsedData.lineWidth || 2,
-            pointRadius: parsedData.pointSize || 4,
-            tension: parsedData.tension || 0.3
-          }]
+ // ============================================================
+// 5. SCATTER (series + points 모두 지원)
+// ============================================================
+else if (parsedData.type === 'scatter') {
+  console.log("✅ SCATTER rendering started");
+  
+  setTimeout(function() {
+    var ctx = document.getElementById(chartId);
+    if (!ctx) {
+      console.error("❌ Canvas not found for scatter!");
+      return;
+    }
+    if (window._chartInstances && window._chartInstances[chartId]) {
+      window._chartInstances[chartId].destroy();
+    }
+    if (!window._chartInstances) window._chartInstances = {};
+    
+    var datasets = [];
+    
+    // ===== series 배열이 있으면 각 series를 dataset으로 변환 =====
+    if (parsedData.series && Array.isArray(parsedData.series)) {
+      parsedData.series.forEach(function(ser, i) {
+        var color = colors[i % colors.length];
+        var points = ser.points || [];
+        datasets.push({
+          label: ser.name || 'Series ' + (i+1),
+          data: points.map(function(p) { return { x: p.x, y: p.y }; }),
+          backgroundColor: color,
+          borderColor: color,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          showLine: false
+        });
+      });
+    }
+    // ===== points가 직접 있으면 단일 dataset =====
+    else if (parsedData.points) {
+      var points = parsedData.points.map(function(p) {
+        return { x: p.x, y: p.y };
+      });
+      datasets.push({
+        label: parsedData.title || 'Data',
+        data: points,
+        backgroundColor: '#3498db',
+        borderColor: '#2980b9',
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        showLine: false
+      });
+    }
+    
+    console.log("📊 datasets:", datasets);
+    
+    if (datasets.length === 0) {
+      console.warn("⚠️ No data for scatter plot");
+      return;
+    }
+    
+    var xMin = parsedData.xAxis?.min !== undefined ? parsedData.xAxis.min : undefined;
+    var xMax = parsedData.xAxis?.max !== undefined ? parsedData.xAxis.max : undefined;
+    var yMin = parsedData.yAxis?.min !== undefined ? parsedData.yAxis.min : undefined;
+    var yMax = parsedData.yAxis?.max !== undefined ? parsedData.yAxis.max : undefined;
+    
+    var cc = {
+      type: 'scatter',
+      data: { datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { display: true, text: parsedData.title || 'Scatter Plot', font: { size: 16, weight: 'bold' } },
+          legend: { position: 'bottom' }
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            title: { display: true, text: parsedData.equation || parsedData.title || 'Scatter Plot', font: { size: 16, weight: 'bold' } }
+        scales: {
+          x: { 
+            title: { display: true, text: parsedData.xAxis?.label || 'x' }, 
+            grid: { color: '#e0e0e0' },
+            min: xMin,
+            max: xMax
           },
-          scales: {
-            x: { type: 'linear', title: { display: true, text: parsedData.xLabel || 'X' }, grid: { color: '#e0e0e0' } },
-            y: { title: { display: true, text: parsedData.yLabel || 'Y' }, grid: { color: '#e0e0e0' } }
+          y: { 
+            title: { display: true, text: parsedData.yAxis?.label || 'y' }, 
+            grid: { color: '#e0e0e0' },
+            min: yMin,
+            max: yMax
           }
         }
-      };
-      
-      var canvas = document.getElementById(chartId);
-      if (canvas && cc) {
-        canvas.parentElement.style.height = '400px';
-        window._chartInstances[chartId] = new Chart(canvas, cc);
       }
-    }, 100);
-    return html;
-  }
+    };
+    
+    var canvas = document.getElementById(chartId);
+    if (canvas && cc) {
+      canvas.parentElement.style.height = '400px';
+      window._chartInstances[chartId] = new Chart(canvas, cc);
+      console.log("✅ Scatter chart rendered!");
+    }
+  }, 100);
+  
+  return html;
+}
   
   // ============================================================
   // 6. RADAR
