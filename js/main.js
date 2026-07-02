@@ -2367,7 +2367,22 @@ else if (parsedData.type === 'coordinate-plane') {
     }
     
   }, 100);
+  // ============================================================
+// 11. COORDINATE-PLANE (신규)
+// ============================================================
+else if (parsedData.type === 'coordinate-plane') {
+  // ... 기존 코드 ...
   
+  // 축 레이블
+  ctx.fillStyle = '#555';
+  ctx.font = '12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(parsedData.xAxis?.label || 'x', padding + graphW / 2, h - 18);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(parsedData.yAxis?.label || 'y', 12, padding);
+
   return coordHtml;
 }
   // ============================================================
