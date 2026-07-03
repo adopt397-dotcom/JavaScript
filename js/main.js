@@ -59,7 +59,7 @@ var LANG = {
   rangeText: "Range: 1 ~ "
 };
 
-var API_URL = "https://script.google.com/macros/s/AKfycbzmBC4wkQFB-bcwXAnAJuwSNy0D_Kdzq9ulLpjYcE4rb4N7CFHw-Fm2F2dv1Otk8gDNUw/exec";
+var API_URL = "https://script.google.com/macros/s/AKfycbwYnCi7myER0R4djAV7CLW9Y1aTa-mjFSk_y_8vcD_p8vN78Sr5JeUB0WEqJR0_OTuG/exec";
 var STORAGE_KEY = 'quiz_progress_main';
 var TOTAL_CACHE_KEY = 'quiz_total_questions';
 var QUESTIONS_PER_SET = 120;
