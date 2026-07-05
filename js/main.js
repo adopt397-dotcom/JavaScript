@@ -12,7 +12,7 @@ var LANG = {
   resumeDetail: "{answered}/{total} answered · {time}",
   resumeHint: "Click to continue your previous session",
   qPrefix: "Question",
-  of: "/",load50Questions
+  of: "/",
   originalPrefix: "(Original #",
   originalSuffix: ")",
   prevBtn: "◀ PREV",
