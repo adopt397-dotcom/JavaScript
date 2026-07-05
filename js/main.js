@@ -354,12 +354,8 @@ function renderLatex(text) {
 }
 
 // ============================================================
-// load50Questions 함수 (renderLatex 바로 아래)
+// load50Questions 함수 (LaTeX 변환 포함)
 // ============================================================
-async function load50Questions(uiStartNumber) {
-    // ... 기존 코드 ...
-}
-
 async function load50Questions(uiStartNumber) {
   if (TOTAL_QUESTIONS === 0) await detectTotalQuestions();
   try {
@@ -441,14 +437,18 @@ async function load50Questions(uiStartNumber) {
           parsed = { question: String(item), answer: '1' };
         }
         
-        var questionText = parsed.Q || parsed.question || parsed.q || parsed.문제 || parsed.text || 'Question ' + (uiStartNumber + idx);
-        var passageText = parsed.passage || parsed.P || parsed.p || parsed.지문 || '';
+        // ★★★★★ LaTeX 변환 적용 ★★★★★
+        var rawQuestion = parsed.Q || parsed.question || parsed.q || parsed.문제 || parsed.text || 'Question ' + (uiStartNumber + idx);
+        var questionText = renderLatex(rawQuestion);
+        
+        var rawPassage = parsed.passage || parsed.P || parsed.p || parsed.지문 || '';
+        var passageText = renderLatex(rawPassage);
         
         var choices = {};
-choices['1'] = parsed['1'] || '';
-choices['2'] = parsed['2'] || '';
-choices['3'] = parsed['3'] || '';
-choices['4'] = parsed['4'] || '';
+        choices['1'] = parsed['1'] || '';
+        choices['2'] = parsed['2'] || '';
+        choices['3'] = parsed['3'] || '';
+        choices['4'] = parsed['4'] || '';
         
         var finalAnswer = '1';
         if (parsed.A !== undefined && parsed.A !== null && parsed.A !== "") {
