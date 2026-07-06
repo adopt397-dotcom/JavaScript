@@ -896,7 +896,11 @@ function renderCurrentQuestion() {
 // MathJax 직접 렌더링 + 선택지 자동 LaTeX 변환 + 질문 텍스트 강제 변환
 // ============================================================
 
-// ★★★★★ 자동 LaTeX 감싸기 함수 ★★★★★
+// ============================================================
+// 1300 - 렌더링 함수
+// ============================================================
+
+// autoWrapLatex 함수
 function autoWrapLatex(text) {
     if (!text) return text;
     if (text.includes('\\(') || text.includes('$')) return text;
@@ -989,7 +993,7 @@ function renderSubjectiveQuestion(q, answered, headerText, passageHtml) {
   DOM.prevBtn.disabled = (currentIndex === 0);
 }
 
-// ★★★★★ renderCurrentQuestion 함수 (단 한 번만 선언) ★★★★★
+// ★★★★★ renderCurrentQuestion 함수 (유일한 선언) ★★★★★
 function renderCurrentQuestion() {
   console.log('🔴 renderCurrentQuestion START');
   if (!currentQuestions.length || currentIndex >= currentQuestions.length) {
