@@ -2642,7 +2642,7 @@ function renderGraphic(jsonData) {
 // 9900 - 내보내기 및 전역 노출
 // ============================================================
 
-// 모든 주요 함수를 전역에 노출
+// 1. 모든 주요 함수를 전역에 노출 (window)
 window.initialize = initialize;
 window.startQuizWithNumber = startQuizWithNumber;
 window.renderGraphic = renderGraphic;
@@ -2659,13 +2659,13 @@ window.saveProgress = saveProgress;
 window.loadProgress = loadProgress;
 window.clearProgress = clearProgress;
 
-// LANG 객체도 전역에 노출
+// 2. LANG 객체도 전역에 노출
 window.LANG = LANG;
 
-// DOM 객체도 전역에 노출 (디버깅용)
+// 3. DOM 객체도 전역에 노출 (디버깅용)
 window.DOM = DOM;
 
-// 주요 변수들도 전역에 노출 (디버깅용)
+// 4. 주요 변수들도 전역에 노출 (디버깅용)
 window.currentQuestions = currentQuestions;
 window.userAnswers = userAnswers;
 window.currentIndex = currentIndex;
@@ -2674,5 +2674,26 @@ window.isReviewMode = isReviewMode;
 window.currentStartNumber = currentStartNumber;
 window.TOTAL_QUESTIONS = TOTAL_QUESTIONS;
 
+// ★★★★★ IMPORTANT: ES Module export 추가 ★★★★★
+// HTML에서 import { initialize }를 사용하려면 반드시 필요!
+export {
+  initialize,
+  startQuizWithNumber,
+  renderGraphic,
+  renderCurrentQuestion,
+  showExplanation,
+  goNext,
+  goPrev,
+  skipQuestion,
+  submitSubjective,
+  showResults,
+  showWrongAnswersList,
+  startWrongOnlyReview,
+  saveProgress,
+  loadProgress,
+  clearProgress
+};
+
 console.log("✅ Full main.js loaded with all functions!");
 console.log("✅ MathJax available:", typeof MathJax !== 'undefined');
+console.log("✅ Exports available: initialize, startQuizWithNumber, renderGraphic, etc.");
