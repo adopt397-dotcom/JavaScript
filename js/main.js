@@ -755,8 +755,34 @@ function initTimer() {
 
 // ============================================================
 // 1300 - 렌더링 함수 (renderSubjectiveQuestion, renderCurrentQuestion, showExplanation)
-// MathJax 직접 렌더링 방식으로 통합
+// MathJax 직접 렌더링 + 선택지 자동 LaTeX 변환
 // ============================================================
+
+// ★★★★★ 자동 LaTeX 감싸기 함수 ★★★★★
+function autoWrapLatex(text) {
+    if (!text) return text;
+    if (text.includes('\\(') || text.includes('$')) return text;
+    
+    var mathPatterns = [
+        /[a-zA-Z]\^/, /sqrt/, /frac/, /sum/, /int/,
+        /_[a-zA-Z]/, /[a-zA-Z][0-9]/, /[0-9][a-zA-Z]/,
+        /\([^)]+\)/, /[=><]/, /[+-]\s*[a-zA-Z]/,
+        /[a-zA-Z]\s*[=><]/, /[0-9]+\s*[=><]/,
+        /c\^2/, /39\^2/
+    ];
+    
+    for (var i = 0; i < mathPatterns.length; i++) {
+        if (mathPatterns[i].test(text)) {
+            return '\\(' + text + '\\)';
+        }
+    }
+    
+    if (/[0-9+\-*/=<>]/.test(text) && /[a-zA-Z]/.test(text)) {
+        return '\\(' + text + '\\)';
+    }
+    
+    return text;
+}
 
 function renderSubjectiveQuestion(q, answered, headerText, passageHtml) {
   var isAnswered = (answered !== null && answered !== undefined && answered !== -1);
@@ -799,12 +825,12 @@ function renderSubjectiveQuestion(q, answered, headerText, passageHtml) {
   }
   html += '</div></div>';
   DOM.questionContainer.innerHTML = html;
-  
+
   // MathJax 렌더링 실행
   if (window.MathJax && MathJax.typesetPromise) {
     MathJax.typesetPromise([DOM.questionContainer]).catch(console.warn);
   }
-  
+
   var isLastQuestion = (currentIndex >= currentQuestions.length - 1);
   if (isLastQuestion) {
     DOM.nextBtn.style.display = 'none';
@@ -836,7 +862,7 @@ function renderCurrentQuestion() {
   console.log('🔍 Current question:', q);
   console.log('🔍 q.question (raw LaTeX):', q.question);
   console.log('🔍 q.choices:', q.choices);
-  
+
   var answered = userAnswers[currentIndex];
   updateProgressDisplay();
   var actualNumber = q.originalNumber || (currentStartNumber + currentIndex);
@@ -870,7 +896,7 @@ function renderCurrentQuestion() {
     }
   }
   var displayAnswer = actualAnswerKey !== null ? validKeys.indexOf(actualAnswerKey) + 1 : parseInt(originalAnswerKey);
-  
+
   // ★★★ 중요: MathJax가 직접 렌더링하도록 raw LaTeX 유지 ★★★
   var html = '<div class="question-card">' +
     '<div class="q-num">' + headerText + '</div>' +
@@ -882,7 +908,8 @@ function renderCurrentQuestion() {
     var key = validKeys[idx];
     var choiceNum = parseInt(key);
     var letter = getAnswerLetter(idx + 1);
-    var choiceText = q.choices[key] || '';
+    // ★★★★★ 선택지 텍스트에 자동 LaTeX 변환 적용 ★★★★★
+    var choiceText = autoWrapLatex(q.choices[key] || '');
     if (!choiceText) continue;
     var isSelected = (answered === choiceNum);
     var isCorrectChoice = (choiceNum === displayAnswer);
@@ -902,7 +929,7 @@ function renderCurrentQuestion() {
   html += '</div></div>';
   DOM.questionContainer.innerHTML = html;
   console.log('✅ Question rendered');
-  
+
   // ★★★ MathJax로 LaTeX 렌더링 ★★★
   if (window.MathJax && MathJax.typesetPromise) {
     MathJax.typesetPromise([DOM.questionContainer])
@@ -915,7 +942,7 @@ function renderCurrentQuestion() {
   } else {
     console.warn('⚠️ MathJax not available. LaTeX will not render.');
   }
-  
+
   var choiceEls = DOM.questionContainer.querySelectorAll('.choice:not(.disabled)');
   choiceEls.forEach(function(el) {
     el.addEventListener('click', function() {
@@ -979,7 +1006,7 @@ function showExplanation() {
       '</div>' +
       '<p style="margin-top:12px;" class="math-content">' + escapeHtml(q.explanation || LANG.noExplanation) + '</p>';
     DOM.explanationBox.classList.add('show');
-    
+
     // 설명에도 LaTeX 있을 수 있으므로 MathJax 렌더링
     if (window.MathJax && MathJax.typesetPromise) {
       MathJax.typesetPromise([DOM.explanationText]).catch(console.warn);
@@ -1011,7 +1038,7 @@ function showExplanation() {
     '</div>' +
     '<p style="margin-top:12px;" class="math-content">' + escapeHtml(q.explanation || LANG.noExplanation) + '</p>';
   DOM.explanationBox.classList.add('show');
-  
+
   // 설명에도 LaTeX 있을 수 있으므로 MathJax 렌더링
   if (window.MathJax && MathJax.typesetPromise) {
     MathJax.typesetPromise([DOM.explanationText]).catch(console.warn);
