@@ -444,7 +444,7 @@ function updateSetSelector() {
 }
 
 // ============================================================
-// 0900 - load50Questions 함수 (LaTeX 변환 포함)
+// 0900 - load50Questions 함수 (LaTeX 변환 없이 raw 데이터 유지)
 // ============================================================
 async function load50Questions(uiStartNumber) {
   if (TOTAL_QUESTIONS === 0) await detectTotalQuestions();
@@ -514,11 +514,15 @@ async function load50Questions(uiStartNumber) {
         if (!parsed || typeof parsed !== 'object') {
           parsed = { question: String(item), answer: '1' };
         }
-        // ★★★★★ LaTeX 변환 적용 ★★★★★
+        
+        // ★★★★★ renderLatex 호출 제거 - raw 데이터 그대로 유지 ★★★★★
+        // MathJax가 직접 렌더링하므로 LaTeX 변환 불필요
         var rawQuestion = parsed.Q || parsed.question || parsed.q || parsed.문제 || parsed.text || 'Question ' + (uiStartNumber + idx);
-        var questionText = renderLatex(rawQuestion);
+        var questionText = rawQuestion;  // LaTeX 그대로 유지
+        
         var rawPassage = parsed.passage || parsed.P || parsed.p || parsed.지문 || '';
-        var passageText = renderLatex(rawPassage);
+        var passageText = rawPassage;    // LaTeX 그대로 유지
+        
         var choices = {};
         choices['1'] = parsed['1'] || '';
         choices['2'] = parsed['2'] || '';
@@ -548,6 +552,7 @@ async function load50Questions(uiStartNumber) {
         });
         if (idx === 0) {
           console.log('📝 First question mapped:', processed[0]);
+          console.log('📝 q.question (raw):', processed[0].question);
         }
       } catch(e) {
         console.warn('⚠️ Parse error for item', idx, ':', e);
@@ -2762,10 +2767,10 @@ function renderGraphic(jsonData) {
 }
 
 // ============================================================
-// 9900 - 내보내기 및 전역 노출 (renderLatex 제거)
+// 9900 - 내보내기 및 전역 노출
 // ============================================================
 
-// 1. 모든 주요 함수를 전역에 노출
+// 모든 주요 함수를 전역에 노출
 window.initialize = initialize;
 window.startQuizWithNumber = startQuizWithNumber;
 window.renderGraphic = renderGraphic;
@@ -2782,13 +2787,13 @@ window.saveProgress = saveProgress;
 window.loadProgress = loadProgress;
 window.clearProgress = clearProgress;
 
-// 2. LANG 객체도 전역에 노출
+// LANG 객체도 전역에 노출
 window.LANG = LANG;
 
-// 3. DOM 객체도 전역에 노출 (디버깅용)
+// DOM 객체도 전역에 노출 (디버깅용)
 window.DOM = DOM;
 
-// 4. 주요 변수들도 전역에 노출 (디버깅용)
+// 주요 변수들도 전역에 노출 (디버깅용)
 window.currentQuestions = currentQuestions;
 window.userAnswers = userAnswers;
 window.currentIndex = currentIndex;
@@ -2797,6 +2802,5 @@ window.isReviewMode = isReviewMode;
 window.currentStartNumber = currentStartNumber;
 window.TOTAL_QUESTIONS = TOTAL_QUESTIONS;
 
-// 5. MathJax 상태 확인용
-console.log("✅ Full main.js loaded!");
+console.log("✅ Full main.js loaded with all functions!");
 console.log("✅ MathJax available:", typeof MathJax !== 'undefined');
