@@ -270,6 +270,32 @@ async function loadSubjects() {
     }
 }
 
+// ============================================================
+// 0555 - checkAutoLogin (신규)
+// ============================================================
+function checkAutoLogin() {
+  var session = localStorage.getItem(SESSION_KEY);
+  if (!session) return false;
+  
+  try {
+    var data = JSON.parse(session);
+    if (Date.now() - data.timestamp < 7 * 24 * 60 * 60 * 1000) {
+      CURRENT_USER = {
+        email: data.email,
+        name: data.name || data.email,
+        payment_status: data.payment_status,
+        access_subjects: data.access_subjects
+      };
+      return true;
+    } else {
+      localStorage.removeItem(SESSION_KEY);
+    }
+  } catch(e) {
+    localStorage.removeItem(SESSION_KEY);
+  }
+  return false;
+}
+
 
 // ============================================================
 // 0600 - 자동저장
