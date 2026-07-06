@@ -843,17 +843,17 @@ async function initialize() {
 
     console.log("✅ DOM 연결 완료");
 
-    // 2. 과목 선택기 추가
-    addSubjectSelector();
-    var subjectSelect = document.getElementById('subjectSelect');
-    if (subjectSelect) {
-      subjectSelect.addEventListener('change', function() {
-        SELECTED_SUBJECT = this.value;
-        updateSetSelectorForSubject(SELECTED_SUBJECT);
-      });
-    }
-    console.log("✅ 과목 선택기 추가 완료");
-
+   // 2. 과목 선택 이벤트 (HTML에 이미 존재하는 subjectSelect 사용)
+var subjectSelect = document.getElementById('subjectSelect');
+if (subjectSelect) {
+  subjectSelect.addEventListener('change', function() {
+    SELECTED_SUBJECT = this.value;
+    updateSetSelectorForSubject(SELECTED_SUBJECT);
+  });
+  console.log("✅ 과목 선택 이벤트 연결 완료");
+} else {
+  console.log("ℹ️ subjectSelect 요소가 없습니다 (과목 선택 기능 생략)");
+}
     // 3. 타이머 초기화
     initTimer();
     updateSplash(10, '서버 연결 중...');
