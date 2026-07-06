@@ -142,7 +142,6 @@ async function handleLogin() {
   msg.style.color = '#f5a623';
   btn.disabled = true;
   try {
-    // 🔥 headers 제거 (preflight 방지)
     var res = await fetch(MEMBER_API_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'login', email, pin })
@@ -206,7 +205,6 @@ async function handleRegister() {
   msg.textContent = '⏳ 처리 중...';
   if (btn) btn.disabled = true;
   try {
-    // 🔥 headers 제거 (preflight 방지)
     var res = await fetch(MEMBER_API_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'register', email, pin, name: name || email })
@@ -807,6 +805,47 @@ function addSubjectSelector() {
     cardNew.appendChild(subjectDiv);
   }
 }
+
+// ============================================================
+// 1350 - updateSetSelectorForSubject (신규 추가)
+// ============================================================
+function updateSetSelectorForSubject(subject) {
+  var setSelector = document.getElementById('setSelector');
+  if (!setSelector) return;
+
+  var totalQuestions = 0;
+  var subjects = getAccessibleSubjects();
+  for (var i = 0; i < subjects.length; i++) {
+    if (subjects[i].subject === subject) {
+      totalQuestions = subjects[i].total_questions || 0;
+      break;
+    }
+  }
+  if (totalQuestions === 0) totalQuestions = TOTAL_QUESTIONS || 720;
+
+  var totalSets = Math.ceil(totalQuestions / QUESTIONS_PER_SET);
+  while (setSelector.options.length > 0) setSelector.remove(0);
+
+  for (var i = 1; i <= totalSets; i++) {
+    var start = (i - 1) * QUESTIONS_PER_SET + 1;
+    var end = Math.min(i * QUESTIONS_PER_SET, totalQuestions);
+    var option = document.createElement('option');
+    option.value = i;
+    option.textContent = 'Set ' + i + ' (Q' + start + '-' + end + ')';
+    setSelector.appendChild(option);
+  }
+
+  var maxStartNumber = Math.max(1, totalQuestions - QUESTIONS_PER_SET + 1);
+  if (DOM.maxNumberDisplay) DOM.maxNumberDisplay.innerText = maxStartNumber.toLocaleString();
+  if (DOM.startNumberInput) {
+    DOM.startNumberInput.placeholder = '1 ~ ' + maxStartNumber.toLocaleString();
+    DOM.startNumberInput.max = maxStartNumber;
+  }
+  if (setSelector.options.length > 0) setSelector.value = '1';
+  if (DOM.startNumberInput) DOM.startNumberInput.value = '1';
+}
+
+
 // ============================================================
 // 1400 - initialize
 // ============================================================
