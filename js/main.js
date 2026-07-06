@@ -241,7 +241,7 @@ function randomizeChoicesOnly(q) {
 // 0550 - 회원관리 유틸리티
 // ============================================================
 // ============================================================
-// 0550 - loadSubjects (Content-Type 제거 - preflight 방지)
+// 0550 - loadSubjects (GET 방식으로 변경 - preflight 완전 회피)
 // ============================================================
 async function loadSubjects() {
   console.log("🔍 loadSubjects 시작");
@@ -252,13 +252,12 @@ async function loadSubjects() {
   }
 
   try {
-    const url = "https://script.google.com/macros/s/AKfycbwYnCi7myER0R4djAV7CLW9Y1aTa-mjFSk_y_8vcD_p8vN78Sr5JeUB0WEqJR0_OTuG/exec";
-    console.log("🔍 fetch URL:", url);
+    const url = "https://script.google.com/macros/s/AKfycbwYnCi7myER0R4djAV7CLW9Y1aTa-mjFSk_y_8vcD_p8vN78Sr5JeUB0WEqJR0_OTuG/exec?action=subjects";
+    console.log("🔍 fetch URL (GET):", url);
 
-    // 🔥 Content-Type 제거 (preflight 방지)
+    // 🔥 GET 방식 사용 (preflight 발생 안 함)
     const response = await fetch(url, {
-      method: "POST",
-      body: JSON.stringify({ action: "subjects" })
+      method: "GET"
     });
 
     console.log("✅ response 상태:", response.status);
