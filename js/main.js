@@ -240,35 +240,36 @@ function randomizeChoicesOnly(q) {
 // ============================================================
 // 0550 - 회원관리 유틸리티
 // ============================================================
-function checkAutoLogin() {
-  var session = localStorage.getItem(SESSION_KEY);
-  if (!session) return false;
-  try {
-    var data = JSON.parse(session);
-    if (Date.now() - data.timestamp < 7 * 24 * 60 * 60 * 1000) {
-      CURRENT_USER = { email: data.email, name: data.name || data.email, payment_status: data.payment_status, access_subjects: data.access_subjects };
-      return true;
-    } else { localStorage.removeItem(SESSION_KEY); }
-  } catch(e) { localStorage.removeItem(SESSION_KEY); }
-  return false;
-}
-
+// ============================================================
+// 0550 - loadSubjects (로그 추가)
+// ============================================================
 async function loadSubjects() {
-  if (SUBJECTS_LOADED) return SUBJECTS_LIST;
-  try {
-    var res = await fetch(MEMBER_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'subjects' }) });
-    var result = await res.json();
-    if (result.success && result.data) { SUBJECTS_LIST = result.data; SUBJECTS_LOADED = true; return SUBJECTS_LIST; }
-    else return [];
-  } catch(e) { return []; }
+    console.log("🔍 loadSubjects 시작");
+
+    try {
+        const response = await fetch(MEMBER_API_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                action: "subjects"
+            })
+        });
+
+        console.log("✅ response 상태:", response.status);
+
+        const result = await response.json();
+        console.log("✅ loadSubjects 결과:", result);
+
+        return result;
+
+    } catch (e) {
+        console.error("❌ loadSubjects 오류:", e);
+        throw e;
+    }
 }
 
-function getAccessibleSubjects() {
-  if (!CURRENT_USER || !CURRENT_USER.access_subjects) return SUBJECTS_LIST;
-  try { var accessList = JSON.parse(CURRENT_USER.access_subjects); return SUBJECTS_LIST.filter(function(s) { return accessList.indexOf(s.subject) !== -1; }); } catch(e) { return SUBJECTS_LIST; }
-}
-
-function logout() { if (confirm('로그아웃 하시겠습니까?')) { localStorage.removeItem(SESSION_KEY); CURRENT_USER = null; window.location.reload(); } }
 
 // ============================================================
 // 0600 - 자동저장
