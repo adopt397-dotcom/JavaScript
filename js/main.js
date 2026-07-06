@@ -241,7 +241,7 @@ function randomizeChoicesOnly(q) {
 // 0550 - 회원관리 유틸리티
 // ============================================================
 // ============================================================
-// 0550 - loadSubjects (로그 추가)
+// 0550 - loadSubjects (수정 - URL 직접 지정)
 // ============================================================
 async function loadSubjects() {
   console.log("🔍 loadSubjects 시작");
@@ -252,7 +252,11 @@ async function loadSubjects() {
   }
 
   try {
-    const response = await fetch(MEMBER_API_URL, {
+    // 🔥 URL 직접 지정 (문제 해결용)
+    const url = "https://script.google.com/macros/s/AKfycbwYnCi7myER0R4djAV7CLW9Y1aTa-mjFSk_y_8vcD_p8vN78Sr5JeUB0WEqJR0_OTuG/exec";
+    console.log("🔍 fetch URL:", url);
+
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "subjects" })
