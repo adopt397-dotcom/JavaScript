@@ -2664,24 +2664,11 @@ function renderGraphic(jsonData) {
 // ============================================================
 // 9900 - 내보내기 및 전역 노출
 // ============================================================
-export {
-  initialize,
-  startQuizWithNumber,
-  renderGraphic,
-  renderCurrentQuestion,
-  showExplanation,
-  goNext,
-  goPrev,
-  skipQuestion,
-  submitSubjective,
-  showResults,
-  showWrongAnswersList,
-  startWrongOnlyReview,
-  saveProgress,
-  loadProgress,
-  clearProgress
-};
 
+// 1. renderLatex를 전역에 먼저 노출 (중요!)
+window.renderLatex = renderLatex;
+
+// 2. 모든 주요 함수를 전역에 노출
 window.initialize = initialize;
 window.startQuizWithNumber = startQuizWithNumber;
 window.renderGraphic = renderGraphic;
@@ -2698,4 +2685,21 @@ window.saveProgress = saveProgress;
 window.loadProgress = loadProgress;
 window.clearProgress = clearProgress;
 
+// 3. LANG 객체도 전역에 노출 (필요시)
+window.LANG = LANG;
+
+// 4. DOM 객체도 전역에 노출 (디버깅용)
+window.DOM = DOM;
+
+// 5. 주요 변수들도 전역에 노출 (디버깅용)
+window.currentQuestions = currentQuestions;
+window.userAnswers = userAnswers;
+window.currentIndex = currentIndex;
+window.correctCount = correctCount;
+window.isReviewMode = isReviewMode;
+window.currentStartNumber = currentStartNumber;
+window.TOTAL_QUESTIONS = TOTAL_QUESTIONS;
+
 console.log("✅ Full main.js loaded with all functions!");
+console.log("✅ renderLatex is now available globally:", typeof window.renderLatex);
+console.log("✅ You can test with: renderLatex('\\\\frac{1}{2}')");
