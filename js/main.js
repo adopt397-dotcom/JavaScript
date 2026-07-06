@@ -753,101 +753,6 @@ function initTimer() {
   });
 }
 
-// ============================================================
-// 1300 - 렌더링 함수 (renderSubjectiveQuestion, renderCurrentQuestion, showExplanation)
-// MathJax 직접 렌더링 + 선택지 자동 LaTeX 변환
-// ============================================================
-
-// ★★★★★ 자동 LaTeX 감싸기 함수 ★★★★★
-function autoWrapLatex(text) {
-    if (!text) return text;
-    if (text.includes('\\(') || text.includes('$')) return text;
-    
-    var mathPatterns = [
-        /[a-zA-Z]\^/, /sqrt/, /frac/, /sum/, /int/,
-        /_[a-zA-Z]/, /[a-zA-Z][0-9]/, /[0-9][a-zA-Z]/,
-        /\([^)]+\)/, /[=><]/, /[+-]\s*[a-zA-Z]/,
-        /[a-zA-Z]\s*[=><]/, /[0-9]+\s*[=><]/,
-        /c\^2/, /39\^2/
-    ];
-    
-    for (var i = 0; i < mathPatterns.length; i++) {
-        if (mathPatterns[i].test(text)) {
-            return '\\(' + text + '\\)';
-        }
-    }
-    
-    if (/[0-9+\-*/=<>]/.test(text) && /[a-zA-Z]/.test(text)) {
-        return '\\(' + text + '\\)';
-    }
-    
-    return text;
-}
-
-function renderSubjectiveQuestion(q, answered, headerText, passageHtml) {
-  var isAnswered = (answered !== null && answered !== undefined && answered !== -1);
-  if (!isAnswered) {
-    DOM.explanationBox.classList.remove('show');
-    DOM.explanationText.innerHTML = '';
-  }
-  var correctAnswerText = '';
-  if (q.A && q.A !== '') {
-    correctAnswerText = String(q.A).trim();
-  } else if (q.answer && q.answer !== '' && q.answer !== '0') {
-    correctAnswerText = String(q.answer).trim();
-  } else {
-    correctAnswerText = 'Answer not available';
-  }
-  var html = '<div class="question-card">' +
-    '<div class="q-num">' + headerText + '</div>' +
-    passageHtml +
-    renderGraphic(q.graphic) +
-    '<div class="question-text math-content">' + (q.question || 'No question text') + '</div>';
-  if (isAnswered) {
-    var userAns = String(answered).trim();
-    var isCorrect = (userAns === correctAnswerText) || (parseFloat(userAns) === parseFloat(correctAnswerText));
-    var statusColor = isCorrect ? '#27ae60' : '#e74c3c';
-    html += '<div style="margin-top:15px;padding:15px;background:#f8f9fa;border-radius:8px;border-left:4px solid #666;">' +
-      '<div style="font-size:14px;color:#666;">Your answer: <strong>' + escapeHtml(userAns) + '</strong></div>' +
-      '</div>' +
-      '<div class="subjective-result" style="background:' + statusColor + ';">' +
-      'Answer: ' + escapeHtml(correctAnswerText) +
-      '</div>' +
-      '<div class="subjective-explanation">' +
-      '<strong>Explanation</strong>' +
-      '<p style="margin-top:8px;">' + escapeHtml(q.explanation || 'No explanation available.') + '</p>' +
-      '</div>';
-  } else {
-    html += '<div class="subjective-input-group">' +
-      '<input type="text" id="subjectiveInput" placeholder="Enter your answer" onkeypress="if(event.key===\'Enter\') submitSubjective()">' +
-      '<button onclick="submitSubjective()">Submit</button>' +
-      '</div>';
-  }
-  html += '</div></div>';
-  DOM.questionContainer.innerHTML = html;
-
-  // MathJax 렌더링 실행
-  if (window.MathJax && MathJax.typesetPromise) {
-    MathJax.typesetPromise([DOM.questionContainer]).catch(console.warn);
-  }
-
-  var isLastQuestion = (currentIndex >= currentQuestions.length - 1);
-  if (isLastQuestion) {
-    DOM.nextBtn.style.display = 'none';
-    DOM.submitBtn.style.display = 'inline-block';
-    DOM.submitBtn.innerHTML = 'SUBMIT (Enter)';
-    var isAnswered2 = (userAnswers[currentIndex] !== null && userAnswers[currentIndex] !== undefined && userAnswers[currentIndex] !== -1);
-    DOM.submitBtn.disabled = !isAnswered2;
-    DOM.submitBtn.style.background = isAnswered2 ? '#27ae60' : '#95a5a6';
-    DOM.submitBtn.style.color = isAnswered2 ? 'white' : '#666';
-  } else {
-    DOM.nextBtn.style.display = 'inline-block';
-    DOM.nextBtn.innerHTML = 'NEXT (N)';
-    DOM.submitBtn.style.display = 'none';
-  }
-  DOM.prevBtn.disabled = (currentIndex === 0);
-}
-
 function renderCurrentQuestion() {
   console.log('🔴 renderCurrentQuestion START');
   if (!currentQuestions.length || currentIndex >= currentQuestions.length) {
@@ -897,18 +802,27 @@ function renderCurrentQuestion() {
   }
   var displayAnswer = actualAnswerKey !== null ? validKeys.indexOf(actualAnswerKey) + 1 : parseInt(originalAnswerKey);
 
+  // ★★★★★ 질문 텍스트 처리 (LaTeX 강제 변환) ★★★★★
+  var questionDisplay = q.question || 'No question text';
+  // 이미 \(...\) 형식이 아니고, 수식 패턴이 있으면 LaTeX로 감싸기
+  if (!questionDisplay.includes('\\(') && !questionDisplay.includes('$')) {
+    if (/frac|sqrt|sum|int|\^|_[a-zA-Z]/.test(questionDisplay)) {
+      questionDisplay = '\\(' + questionDisplay + '\\)';
+    }
+  }
+  console.log('🔍 questionDisplay after processing:', questionDisplay);
+
   // ★★★ 중요: MathJax가 직접 렌더링하도록 raw LaTeX 유지 ★★★
   var html = '<div class="question-card">' +
     '<div class="q-num">' + headerText + '</div>' +
     passageHtml +
     renderGraphic(q.graphic) +
-    '<div class="question-text math-content">' + (q.question || 'No question text') + '</div>' +
+    '<div class="question-text math-content">' + questionDisplay + '</div>' +  // ← 수정된 부분
     '<div class="choices">';
   for (var idx = 0; idx < validKeys.length; idx++) {
     var key = validKeys[idx];
     var choiceNum = parseInt(key);
     var letter = getAnswerLetter(idx + 1);
-    // ★★★★★ 선택지 텍스트에 자동 LaTeX 변환 적용 ★★★★★
     var choiceText = autoWrapLatex(q.choices[key] || '');
     if (!choiceText) continue;
     var isSelected = (answered === choiceNum);
@@ -920,7 +834,6 @@ function renderCurrentQuestion() {
       if (isCorrectChoice) cls += ' correct';
       if (isSelected && !isCorrectChoice) cls += ' incorrect';
     }
-    // 선택지 텍스트도 MathJax 렌더링 대상 (선택지에도 LaTeX 있을 수 있음)
     html += '<div class="' + cls + '" data-choice="' + choiceNum + '">' +
       '<span class="choice-letter">' + letter + '</span>' +
       '<span class="math-content">' + choiceText + '</span>' +
@@ -929,6 +842,7 @@ function renderCurrentQuestion() {
   html += '</div></div>';
   DOM.questionContainer.innerHTML = html;
   console.log('✅ Question rendered');
+  console.log('🔍 HTML content:', html.substring(0, 500));
 
   // ★★★ MathJax로 LaTeX 렌더링 ★★★
   if (window.MathJax && MathJax.typesetPromise) {
@@ -975,74 +889,6 @@ function renderCurrentQuestion() {
     DOM.submitBtn.style.display = 'none';
   }
   DOM.prevBtn.disabled = (currentIndex === 0);
-}
-
-function showExplanation() {
-  var q = currentQuestions[currentIndex];
-  var ans = userAnswers[currentIndex];
-  if (!q || ans === null || ans === undefined || ans === -1) {
-    DOM.explanationBox.classList.remove('show');
-    return;
-  }
-  var hasChoices = hasRealChoices(q);
-  if (!hasChoices) {
-    var correctAns = '';
-    if (q.A && q.A !== '') {
-      correctAns = String(q.A).trim();
-    } else if (q.answer && q.answer !== '' && q.answer !== '0') {
-      correctAns = String(q.answer).trim();
-    } else {
-      correctAns = 'Answer not available';
-    }
-    var userAns = String(ans).trim();
-    var isCorrect = (userAns === correctAns) || (parseFloat(userAns) === parseFloat(correctAns));
-    var statusColor = isCorrect ? '#27ae60' : '#e74c3c';
-    DOM.explanationText.innerHTML =
-      '<div style="background:' + statusColor + ';color:white;padding:8px 16px;border-radius:6px;display:inline-block;font-weight:700;margin-bottom:15px;">' +
-      'Answer: ' + escapeHtml(correctAns) +
-      '</div>' +
-      '<div style="margin-top:8px;font-size:14px;color:#555;">' +
-      'Your answer: <strong>' + escapeHtml(userAns) + '</strong>' +
-      '</div>' +
-      '<p style="margin-top:12px;" class="math-content">' + escapeHtml(q.explanation || LANG.noExplanation) + '</p>';
-    DOM.explanationBox.classList.add('show');
-
-    // 설명에도 LaTeX 있을 수 있으므로 MathJax 렌더링
-    if (window.MathJax && MathJax.typesetPromise) {
-      MathJax.typesetPromise([DOM.explanationText]).catch(console.warn);
-    }
-    return;
-  }
-  var validKeys = getValidChoiceKeys(q.choices);
-  var originalAnswerKey = String(q.answer);
-  var originalAnswerText = q.choices[originalAnswerKey] || '';
-  var actualAnswerKey = null;
-  for (var i = 0; i < validKeys.length; i++) {
-    var key = validKeys[i];
-    if (q.choices[key] === originalAnswerText) {
-      actualAnswerKey = key;
-      break;
-    }
-  }
-  var displayAnswerIndex = actualAnswerKey !== null ? validKeys.indexOf(actualAnswerKey) + 1 : parseInt(originalAnswerKey);
-  var userAnswerLetter = getAnswerLetter(ans);
-  var correctAnswerLetter = getAnswerLetter(displayAnswerIndex);
-  var isCorrect = (ans === displayAnswerIndex);
-  var statusColor = isCorrect ? '#27ae60' : '#e74c3c';
-  DOM.explanationText.innerHTML =
-    '<div style="background:' + statusColor + ';color:white;padding:8px 16px;border-radius:6px;display:inline-block;font-weight:700;margin-bottom:15px;">' +
-    'Answer: ' + correctAnswerLetter +
-    '</div>' +
-    '<div style="margin-top:8px;font-size:14px;color:#555;">' +
-    'Your answer: <strong>' + userAnswerLetter + '</strong>' +
-    '</div>' +
-    '<p style="margin-top:12px;" class="math-content">' + escapeHtml(q.explanation || LANG.noExplanation) + '</p>';
-  DOM.explanationBox.classList.add('show');
-
-  // 설명에도 LaTeX 있을 수 있으므로 MathJax 렌더링
-  if (window.MathJax && MathJax.typesetPromise) {
-    MathJax.typesetPromise([DOM.explanationText]).catch(console.warn);
-  }
 }
 
 // ============================================================
