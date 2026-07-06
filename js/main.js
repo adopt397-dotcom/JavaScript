@@ -897,10 +897,10 @@ function renderCurrentQuestion() {
 // ============================================================
 
 // ============================================================
-// 1300 - 렌더링 함수 (renderSubjectiveQuestion, renderCurrentQuestionNew, showExplanation)
+// 1300 - 렌더링 함수 (방법2: \(...\) 그대로 사용)
 // ============================================================
 
-// ★★★★★ 자동 LaTeX 감싸기 함수 ★★★★★
+// ★★★★★ 자동 LaTeX 감싸기 함수 (선택지용) ★★★★★
 function autoWrapLatex(text) {
     if (!text) return text;
     if (text.includes('\\(') || text.includes('$')) return text;
@@ -941,7 +941,7 @@ function renderSubjectiveQuestion(q, answered, headerText, passageHtml) {
     correctAnswerText = 'Answer not available';
   }
   
-  // ★★★★★ 변환 없이 raw LaTeX 그대로 사용 ★★★★★
+  // ★★★★★ 변환 없이 raw 그대로 사용 ★★★★★
   var questionDisplay = q.question || 'No question text';
   
   var html = '<div class="question-card">' +
@@ -993,7 +993,7 @@ function renderSubjectiveQuestion(q, answered, headerText, passageHtml) {
   DOM.prevBtn.disabled = (currentIndex === 0);
 }
 
-// ★★★★★ renderCurrentQuestionNew 함수 (변환 제거) ★★★★★
+// ★★★★★ renderCurrentQuestionNew ★★★★★
 function renderCurrentQuestionNew() {
   console.log('🔴 renderCurrentQuestionNew START');
   if (!currentQuestions.length || currentIndex >= currentQuestions.length) {
@@ -1043,9 +1043,9 @@ function renderCurrentQuestionNew() {
   }
   var displayAnswer = actualAnswerKey !== null ? validKeys.indexOf(actualAnswerKey) + 1 : parseInt(originalAnswerKey);
 
-  // ★★★★★ 변환 없이 raw LaTeX 그대로 사용 ★★★★★
+  // ★★★★★ \(...\) 그대로 사용 (변환 없음) ★★★★★
   var questionDisplay = q.question || 'No question text';
-  console.log('🔍 questionDisplay (raw):', questionDisplay);
+  console.log('🔍 questionDisplay (raw with \\(...\\)):', questionDisplay);
 
   var html = '<div class="question-card">' +
     '<div class="q-num">' + headerText + '</div>' +
@@ -1123,7 +1123,7 @@ function renderCurrentQuestionNew() {
   DOM.prevBtn.disabled = (currentIndex === 0);
 }
 
-// ★★★★★ showExplanation 함수 ★★★★★
+// ★★★★★ showExplanation ★★★★★
 function showExplanation() {
   var q = currentQuestions[currentIndex];
   var ans = userAnswers[currentIndex];
@@ -1145,7 +1145,6 @@ function showExplanation() {
     var isCorrect = (userAns === correctAns) || (parseFloat(userAns) === parseFloat(correctAns));
     var statusColor = isCorrect ? '#27ae60' : '#e74c3c';
     
-    // ★★★★★ 설명 텍스트 변환 없이 raw 그대로 ★★★★★
     var explanationText = q.explanation || LANG.noExplanation;
     
     DOM.explanationText.innerHTML =
@@ -1180,7 +1179,6 @@ function showExplanation() {
   var isCorrect = (ans === displayAnswerIndex);
   var statusColor = isCorrect ? '#27ae60' : '#e74c3c';
   
-  // ★★★★★ 설명 텍스트 변환 없이 raw 그대로 ★★★★★
   var explanationText = q.explanation || LANG.noExplanation;
   
   DOM.explanationText.innerHTML =
@@ -1198,7 +1196,7 @@ function showExplanation() {
   }
 }
 
-// ★★★★★ 기존 renderCurrentQuestion을 새로운 함수로 덮어쓰기 ★★★★★
+// ★★★★★ 기존 함수 덮어쓰기 ★★★★★
 renderCurrentQuestion = renderCurrentQuestionNew;
 
 
