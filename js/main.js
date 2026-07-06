@@ -708,6 +708,9 @@ function resumeProgress(saved) {
 // ============================================================
 // 1400 - initialize
 // ============================================================
+// ============================================================
+// 1400 - initialize 함수 (수정 완료)
+// ============================================================
 function initialize() {
   DOM.setupSection = document.getElementById('setupSection');
   DOM.quizMain = document.getElementById('quizMain');
@@ -781,85 +784,49 @@ function initialize() {
 
       attachEvents();
       updateSplash(100, 'Ready!');
-      setTimeout(function() { DOM.startNumberInput.focus(); DOM.startNumberInput.select(); }, 400);
-      setTimeout(function() { hideSplash(); }, 700);
+      
+      // ✅ 스플래시 숨기기 (hideSplash 대신 직접 처리)
+      setTimeout(function() {
+        var overlay = document.getElementById('splashOverlay');
+        if (overlay) {
+          overlay.style.opacity = '0';
+          setTimeout(function() {
+            overlay.style.display = 'none';
+            var main = document.getElementById('mainContainer');
+            if (main) main.style.display = 'block';
+            console.log('✅ 스플래시 숨김 완료 (from initialize)');
+          }, 500);
+        } else {
+          var main = document.getElementById('mainContainer');
+          if (main) main.style.display = 'block';
+        }
+      }, 400);
+      
+      setTimeout(function() {
+        if (DOM.startNumberInput) {
+          DOM.startNumberInput.focus();
+          DOM.startNumberInput.select();
+        }
+      }, 600);
+      
       console.log('✅ Initialization complete: ' + TOTAL_QUESTIONS + ' total questions');
     } catch(e) {
       console.error('Initialization error:', e);
       showSplashError(e.message || 'Initialization failed');
+      // 에러 발생 시에도 스플래시 숨기기
+      setTimeout(function() {
+        var overlay = document.getElementById('splashOverlay');
+        if (overlay) {
+          overlay.style.opacity = '0';
+          setTimeout(function() {
+            overlay.style.display = 'none';
+            var main = document.getElementById('mainContainer');
+            if (main) main.style.display = 'block';
+          }, 500);
+        }
+      }, 1000);
     }
   }, 300);
-}
-
-function addSubjectSelector() {
-  var setupSection = document.getElementById('setupSection');
-  if (!setupSection) return;
-  var cardsContainer = setupSection.querySelector('.cards-container');
-  if (!cardsContainer) return;
-  var cardNew = cardsContainer.querySelector('.card-new');
-  if (!cardNew) return;
-  if (document.getElementById('subjectSelect')) return;
-  var subjectDiv = document.createElement('div');
-  subjectDiv.className = 'input-wrapper';
-  subjectDiv.style.marginTop = '4px';
-  var select = document.createElement('select');
-  select.id = 'subjectSelect';
-  select.style.cssText = 'width:100%;padding:12px 14px;font-size:15px;font-weight:600;border:2px solid #ddd;border-radius:12px;text-align:center;background:#f8f9fa;outline:none;color:#1a1a2e;cursor:pointer;';
-  select.innerHTML = '<option value="">과목 로딩 중...</option>';
-  populateSubjectSelect(select);
-  subjectDiv.appendChild(select);
-  var setSelectorWrapper = cardNew.querySelector('.input-wrapper');
-  if (setSelectorWrapper) { cardNew.insertBefore(subjectDiv, setSelectorWrapper); }
-  else { cardNew.appendChild(subjectDiv); }
-}
-
-function populateSubjectSelect(select) {
-  if (!select) return;
-  var subjects = getAccessibleSubjects();
-  if (!subjects || subjects.length === 0) {
-    select.innerHTML = '<option value="sat">SAT (기본)</option>';
-    return;
-  }
-  select.innerHTML = '';
-  subjects.forEach(function(s) {
-    var option = document.createElement('option');
-    option.value = s.subject;
-    option.textContent = s.display_name + ' (' + s.total_questions + '문제)';
-    select.appendChild(option);
-  });
-  var defaultSubject = 'sat';
-  var found = false;
-  for (var i = 0; i < select.options.length; i++) {
-    if (select.options[i].value === defaultSubject) { select.value = defaultSubject; found = true; break; }
-  }
-  if (!found && select.options.length > 0) { select.value = select.options[0].value; }
-  SELECTED_SUBJECT = select.value || 'sat';
-}
-
-function updateSetSelectorForSubject(subject) {
-  var setSelector = document.getElementById('setSelector');
-  if (!setSelector) return;
-  var totalQuestions = 0;
-  var subjects = getAccessibleSubjects();
-  for (var i = 0; i < subjects.length; i++) {
-    if (subjects[i].subject === subject) { totalQuestions = subjects[i].total_questions || 0; break; }
-  }
-  if (totalQuestions === 0) totalQuestions = TOTAL_QUESTIONS || 720;
-  var totalSets = Math.ceil(totalQuestions / QUESTIONS_PER_SET);
-  while (setSelector.options.length > 0) { setSelector.remove(0); }
-  for (var i = 1; i <= totalSets; i++) {
-    var start = (i - 1) * QUESTIONS_PER_SET + 1;
-    var end = Math.min(i * QUESTIONS_PER_SET, totalQuestions);
-    var option = document.createElement('option');
-    option.value = i;
-    option.textContent = 'Set ' + i + ' (Q' + start + '-' + end + ')';
-    setSelector.appendChild(option);
-  }
-  var maxStartNumber = Math.max(1, totalQuestions - QUESTIONS_PER_SET + 1);
-  if (DOM.maxNumberDisplay) DOM.maxNumberDisplay.innerText = maxStartNumber.toLocaleString();
-  if (DOM.startNumberInput) { DOM.startNumberInput.placeholder = '1 ~ ' + maxStartNumber.toLocaleString(); DOM.startNumberInput.max = maxStartNumber; }
-  if (setSelector.options.length > 0) setSelector.value = '1';
-  if (DOM.startNumberInput) DOM.startNumberInput.value = '1';
 }
 
 // ============================================================
