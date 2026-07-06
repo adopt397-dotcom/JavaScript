@@ -1,861 +1,503 @@
-// ============================================================
-// 0000 - main.js 통합 코드 (SAT Quiz + 회원관리)
-// ============================================================
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAT Quiz - Adaptive Learning Platform</title>
 
-// ============================================================
-// 0050 - 회원관리 LANG 객체 (신규)
-// ============================================================
-var LANG = {
-  // ... (기존 LANG 내용은 여기에 그대로 유지)
-  // 기존 LANG 내용이 길어 생략, 실제 사용시 기존 LANG 유지
-  
-  // ===== 신규 회원관리 메시지 =====
-  loginTitle: "🔐 SAT 로그인",
-  loginEmail: "이메일",
-  loginPin: "PIN (4자리 숫자)",
-  loginBtn: "로그인",
-  registerBtn: "회원가입",
-  loginError: "이메일과 PIN을 입력해주세요.",
-  loginFailed: "이메일 또는 PIN이 일치하지 않습니다.",
-  registerSuccess: "회원가입이 완료되었습니다.",
-  registerFailed: "회원가입에 실패했습니다.",
-  alreadyRegistered: "이미 등록된 이메일입니다.",
-  paymentRequired: "💳 결제가 필요합니다.",
-  paymentExpired: "❌ 결제가 만료되었습니다.",
-  paymentPending: "⏳ 관리자 승인 대기 중입니다.",
-  accessDenied: "🚫 접근 권한이 없습니다.",
-  selectSubject: "과목 선택",
-  loadingSubjects: "과목 로딩 중...",
-  noSubjects: "등록된 과목이 없습니다."
-};
+  <!-- ============================================================ -->
+  <!-- BLOCK 06: CSS (통합) -->
+  <!-- ============================================================ -->
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+    #splashOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      transition: opacity 0.8s;
+    }
+    #splashOverlay .icon { font-size: 4rem; margin-bottom: 16px; }
+    #splashOverlay .title { font-size: 2.4rem; font-weight: 800; letter-spacing: -1px; }
+    #splashOverlay .title span { color: #f5a623; }
+    #splashOverlay .subtitle { font-size: 1rem; opacity: 0.6; margin-top: 4px; letter-spacing: 4px; font-weight: 300; }
+    #splashOverlay .bar-track { width: 280px; height: 4px; background: rgba(255,255,255,0.15); border-radius: 4px; overflow: hidden; margin-top: 30px; }
+    #splashOverlay .bar-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #f5a623, #e94560); border-radius: 4px; transition: width 0.5s ease; }
+    #splashOverlay .status-text { font-size: 0.85rem; opacity: 0.5; margin-top: 14px; font-weight: 300; letter-spacing: 1px; }
+    #splashOverlay .error-msg { color: #ff6b6b; font-size: 0.9rem; margin-top: 15px; display: none; }
+    #splashOverlay .retry-btn { margin-top: 20px; padding: 12px 40px; font-size: 16px; font-weight: 700; background: #f5a623; color: #fff; border: none; border-radius: 12px; cursor: pointer; display: none; transition: all 0.3s; }
+    #splashOverlay .retry-btn:hover { background: #e0941a; transform: scale(1.03); }
+    #mainContainer { display: none; max-width: 820px; margin: 0 auto; padding: 20px; }
+    .header {
+      text-align: center;
+      padding: 25px 20px 20px;
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      border-radius: 20px;
+      margin-bottom: 25px;
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(ellipse at 30% 50%, rgba(245, 166, 35, 0.05) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .sat-logo { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; position: relative; z-index: 1; }
+    .sat-icon { font-size: 1.6rem; }
+    .sat-title { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.5px; background: linear-gradient(90deg, #fff, #f5a623); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .sat-badge { background: rgba(245, 166, 35, 0.2); border: 1px solid rgba(245, 166, 35, 0.4); color: #f5a623; font-size: 0.6rem; font-weight: 700; padding: 2px 12px; border-radius: 20px; letter-spacing: 1px; text-transform: uppercase; -webkit-text-fill-color: #f5a623; }
+    .sat-sub { font-size: 0.7rem; opacity: 0.5; letter-spacing: 4px; margin-top: 4px; font-weight: 300; position: relative; z-index: 1; }
+    .setup-area { padding: 30px 25px; background: #fff; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); display: none; }
+    .cards-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 680px; margin: 0 auto; }
+    .card { border-radius: 18px; padding: 24px 20px; transition: all 0.3s ease; display: flex; flex-direction: column; align-items: center; }
+    .card-new { background: #fff; border: 2px solid rgba(0,0,0,0.06); box-shadow: 0 4px 20px rgba(0,0,0,0.04); }
+    .card-new:hover { border-color: #f5a623; box-shadow: 0 6px 30px rgba(0,0,0,0.08); transform: translateY(-2px); }
+    .card-resume { background: #fff; border: 2px solid #ffd700; box-shadow: 0 4px 20px rgba(255,215,0,0.12); cursor: pointer; justify-content: center; min-height: 200px; }
+    .card-resume:hover { border-color: #f5a623; box-shadow: 0 6px 30px rgba(255,215,0,0.20); transform: translateY(-2px); }
+    .card-icon { font-size: 2.4rem; }
+    .card-title { font-weight: 700; font-size: 1.2rem; letter-spacing: 0.5px; margin-top: 4px; }
+    .card-title-new { color: #2c3e50; }
+    .card-title-resume { color: #f5a623; }
+    .card-sub { font-size: 0.9rem; color: #666; margin-top: 2px; font-weight: 400; }
+    .card-sub-resume { color: #888; }
+    .input-wrapper { width: 100%; margin-top: 8px; }
+    .input-wrapper input,
+    .input-wrapper select {
+      width: 100%;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-weight: 600;
+      border: 2px solid #ddd;
+      border-radius: 12px;
+      text-align: center;
+      background: #f8f9fa;
+      outline: none;
+      transition: all 0.3s;
+      color: #1a1a2e;
+      box-sizing: border-box;
+    }
+    .input-wrapper input:focus,
+    .input-wrapper select:focus { border-color: #f5a623; box-shadow: 0 0 20px rgba(245,166,35,0.10); background: #fff; }
+    .input-wrapper input::placeholder { color: #aaa; font-weight: 400; }
+    .input-wrapper select {
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+    }
+    .btn-start {
+      width: 100%;
+      padding: 14px;
+      margin-top: 10px;
+      font-size: 17px;
+      font-weight: 700;
+      background: #f5a623;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+      letter-spacing: 0.5px;
+      box-shadow: 0 2px 10px rgba(245,166,35,0.25);
+    }
+    .btn-start:hover { background: #e0941a; transform: scale(1.02); box-shadow: 0 4px 20px rgba(245,166,35,0.35); }
+    .btn-start:disabled { opacity: 0.6; cursor: wait; transform: none; }
+    #savedBadgeContainer { width: 100%; margin-top: 8px; }
+    .resume-badge { background: #fef9e7; border-radius: 12px; padding: 14px 12px; border: 2px solid #ffd700; cursor: pointer; transition: all 0.3s; width: 100%; text-align: center; }
+    .resume-badge:hover { background: #fef3d0; border-color: #f5a623; transform: scale(1.01); }
+    .resume-badge .count { font-weight: 700; color: #2c3e50; font-size: 1rem; }
+    .resume-badge .time { font-size: 0.75rem; color: #888; margin-top: 2px; }
+    .resume-badge .hint { font-size: 0.7rem; color: #f5a623; margin-top: 4px; font-weight: 500; }
+    .no-session { background: #f8f9fa; border-radius: 12px; padding: 14px 12px; border: 2px dashed #ddd; width: 100%; text-align: center; font-size: 0.8rem; color: #aaa; }
+    .no-session small { display: block; font-size: 0.65rem; color: #ccc; margin-top: 2px; }
+    .card-hint { font-size: 0.7rem; color: #aaa; margin-top: 6px; font-weight: 400; }
+    .bottom-hint { margin-top: 18px; color: #999; font-size: 0.8rem; letter-spacing: 0.3px; border-top: 1px solid #eee; padding-top: 14px; font-weight: 400; text-align: center; }
+    .quiz-main { padding: 10px 0; display: none; }
+    .progress-area { background: #f8f9fa; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; display: none; }
+    .progress-count { background: #fff; padding: 6px 16px; border-radius: 30px; font-weight: 700; border: 1px solid #3498db; font-size: 0.9rem; }
+    .progress-bar-container { width: 100%; background: #ddd; border-radius: 10px; height: 8px; margin-top: 6px; }
+    .progress-bar { width: 0%; background: #27ae60; border-radius: 10px; height: 8px; transition: width 0.3s; }
+    .review-banner { background: #e67e22; color: #fff; padding: 10px 16px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-weight: 700; display: none; }
+    .exit-review-btn { background: #fff; color: #e67e22; border: none; padding: 5px 14px; border-radius: 20px; cursor: pointer; font-weight: 700; font-size: 0.85rem; }
+    .question-card { background: #fff; border: 2px solid #e9ecef; border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+    .q-num { display: inline-block; background: #2c3e50; color: #fff; padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 12px; }
+    .question-text { font-size: 1.05rem; line-height: 1.6; margin: 12px 0 20px; font-weight: 600; }
+    .choices { display: flex; flex-direction: column; gap: 10px; }
+    .choice { display: flex; align-items: center; padding: 12px 16px; background: #fff; border: 2px solid #ddd; border-radius: 12px; cursor: pointer; transition: all 0.2s; }
+    .choice:hover:not(.disabled) { background: #f0f7ff; border-color: #3498db; transform: translateX(4px); }
+    .choice-letter { width: 30px; height: 30px; background: #3498db; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; margin-right: 14px; flex-shrink: 0; font-size: 0.85rem; }
+    .choice.correct { background: #e9f7ef; border-color: #27ae60; }
+    .choice.correct .choice-letter { background: #27ae60; }
+    .choice.incorrect { background: #fde8e8; border-color: #e74c3c; }
+    .choice.incorrect .choice-letter { background: #e74c3c; }
+    .choice.disabled { cursor: default; }
+    .explanation { margin-top: 16px; padding: 16px; background: #e8f4fc; border-radius: 12px; border-left: 5px solid #3498db; display: none; }
+    .explanation.show { display: block; }
+    .subjective-input-group { display: flex; gap: 10px; margin-top: 16px; align-items: center; flex-wrap: wrap; }
+    .subjective-input-group input { flex: 1; min-width: 180px; padding: 12px 16px; font-size: 15px; border: 2px solid #ddd; border-radius: 12px; background: #f8f9fa; outline: none; transition: all 0.3s; min-height: 48px; box-sizing: border-box; }
+    .subjective-input-group input:focus { border-color: #f5a623; box-shadow: 0 0 0 3px rgba(245,166,35,0.10); background: #fff; }
+    .subjective-input-group button { padding: 12px 24px; background: #f5a623; color: #fff; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; transition: all 0.2s; white-space: nowrap; min-height: 48px; }
+    .subjective-input-group button:hover { background: #e0941a; transform: scale(1.02); }
+    .nav-buttons { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
+    .nav-btn { padding: 10px 18px; font-size: 0.9rem; font-weight: 700; border: none; border-radius: 12px; cursor: pointer; transition: all 0.2s; flex: 1; min-width: 70px; }
+    .nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-prev { background: #3498db; color: #fff; }
+    .btn-prev:hover:not(:disabled) { background: #2980b9; transform: scale(1.02); }
+    .btn-next { background: #2ecc71; color: #fff; }
+    .btn-next:hover:not(:disabled) { background: #27ae60; transform: scale(1.02); }
+    .btn-skip { background: #f39c12; color: #fff; }
+    .btn-skip:hover:not(:disabled) { background: #e67e22; transform: scale(1.02); }
+    .btn-submit { background: #27ae60; color: #fff; }
+    .btn-submit:hover:not(:disabled) { background: #1e8449; transform: scale(1.02); }
+    .btn-quit { background: #e74c3c; color: #fff; }
+    .btn-quit:hover { background: #c0392b; transform: scale(1.02); }
+    .btn-warning { background: #e67e22; color: #fff; }
+    .btn-warning:hover { background: #d35400; transform: scale(1.02); }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55); z-index: 999; justify-content: center; align-items: center; padding: 20px; }
+    .modal-content { background: #fff; max-width: 700px; width: 100%; max-height: 90vh; overflow-y: auto; border-radius: 24px; padding: 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); position: relative; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+    .stat-card { text-align: center; padding: 12px; background: #f8f9fa; border-radius: 12px; }
+    .stat-value { font-size: 26px; font-weight: 700; color: #2c3e50; }
+    .result-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; margin: 12px 0; max-height: 220px; overflow-y: auto; padding: 4px; }
+    .result-item { text-align: center; padding: 5px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid #ddd; }
+    .result-item.correct { background: #d4edda; color: #0d4620; }
+    .result-item.incorrect { background: #f8d7da; color: #5a1414; }
+    .result-item.skipped { background: #fff3cd; color: #856404; }
+    .result-item.unanswered { background: #e9ecef; color: #6c757d; }
+    .wrong-list { max-height: 400px; overflow-y: auto; }
+    .wrong-item { background: #fff; border: 2px solid #eee; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+    .button-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+    .status-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; margin-left: 6px; }
+    .timer-container { position: fixed; top: 16px; right: 16px; background: rgba(26,26,46,0.92); color: #fff; padding: 10px 16px; border-radius: 12px; z-index: 1000; box-shadow: 0 4px 20px rgba(0,0,0,0.25); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.08); min-width: 120px; text-align: center; }
+    .timer-display { font-size: 1.5rem; font-weight: 700; letter-spacing: 2px; font-variant-numeric: tabular-nums; color: #f5a623; }
+    .timer-display.warning { animation: blink 1s infinite; }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .timer-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 2px; opacity: 0.5; margin-top: 2px; }
+    .timer-controls { display: flex; gap: 6px; justify-content: center; margin-top: 4px; }
+    .timer-btn { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: #fff; padding: 3px 12px; border-radius: 6px; cursor: pointer; font-size: 0.65rem; font-weight: 600; transition: all 0.2s; }
+    .timer-btn:hover { background: rgba(245,166,35,0.25); border-color: #f5a623; }
+    .timer-btn.reset-btn { color: #e74c3c; }
+    .timer-btn.reset-btn:hover { background: rgba(231,76,60,0.20); border-color: #e74c3c; }
+    @media (max-width: 640px) {
+      #mainContainer { padding: 12px; }
+      .cards-container { grid-template-columns: 1fr; gap: 14px; }
+      .card-resume { min-height: auto; }
+      .setup-area { padding: 20px 16px; }
+      .nav-btn { padding: 10px 12px; font-size: 0.8rem; }
+      .result-grid { grid-template-columns: repeat(5, 1fr); }
+      .sat-title { font-size: 1.3rem; }
+      .sat-icon { font-size: 1.2rem; }
+      .sat-sub { font-size: 0.6rem; letter-spacing: 2px; }
+      .timer-container { top: 10px; right: 10px; padding: 8px 12px; min-width: 90px; }
+      .timer-display { font-size: 1.2rem; }
+      .subjective-input-group { flex-direction: column; align-items: stretch; }
+      .subjective-input-group button { width: 100%; }
+      .header { padding: 18px 14px; }
+      .modal-content { padding: 20px; }
+    }
+  </style>
 
-// ============================================================
-// 0100 - 기존 LANG 객체 (그대로 유지)
-// ============================================================
-// (기존 LANG 내용을 여기에 붙여넣으세요)
+  <!-- ============================================================ -->
+  <!-- BLOCK 07: 외부 라이브러리 로드 -->
+  <!-- ============================================================ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
 
-// ============================================================
-// 0200 - 기존 API URL
-// ============================================================
-var API_URL = "https://script.google.com/macros/s/AKfycbwYnCi7myER0R4djAV7CLW9Y1aTa-mjFSk_y_8vCD_p8vN78Sr5JeUB0WEqJR0_OTuG/exec";
+  <!-- ============================================================ -->
+  <!-- BLOCK 01: 스플래시 오버레이 -->
+  <!-- ============================================================ -->
+  <div id="splashOverlay">
+    <div class="icon">📚</div>
+    <div class="title">SAT <span>Quiz</span></div>
+    <div class="subtitle">ADAPTIVE LEARNING PLATFORM</div>
+    <div class="bar-track"><div class="bar-fill" id="splashBar"></div></div>
+    <div class="status-text" id="splashStatus">Loading...</div>
+    <div class="error-msg" id="splashError"></div>
+    <button class="retry-btn" id="splashRetry">🔄 Retry</button>
+  </div>
 
-// ============================================================
-// 0250 - 회원관리 API URL & 상수 (신규)
-// ============================================================
-var ORIGINAL_API_URL = API_URL; // 기존 URL과 동일 사용
-var MEMBER_API_URL = API_URL;   // 동일한 URL 사용
-var SESSION_KEY = 'sat_user_session';
-var CURRENT_USER = null;
+  <!-- ============================================================ -->
+  <!-- BLOCK 02: 메인 컨테이너 -->
+  <!-- ============================================================ -->
+  <div id="mainContainer">
 
-// ============================================================
-// 0300 - 기존 전역 변수
-// ============================================================
-// (기존 전역 변수 내용을 여기에 그대로 유지)
-var STORAGE_KEY = 'quiz_progress_main';
-var TOTAL_CACHE_KEY = 'quiz_total_questions';
-var QUESTIONS_PER_SET = 120;
-var TOTAL_QUESTIONS = 0;
-var masterQuestions = [];
-var currentQuestions = [];
-var userAnswers = [];
-var currentIndex = 0;
-var correctCount = 0;
-var isReviewMode = false;
-var originalQuestions = [];
-var currentStartNumber = 1;
-var autoSaveInterval = null;
-var chartInstances = {};
-var DOM = {};
+    <!-- ============================================================ -->
+    <!-- BLOCK 03: 헤더 -->
+    <!-- ============================================================ -->
+    <header class="header">
+      <div class="sat-logo">
+        <span class="sat-icon">📖</span>
+        <span class="sat-title">SAT Quiz</span>
+        <span class="sat-badge">v2.5</span>
+      </div>
+      <div class="sat-sub">Reading &amp; Writing · Math</div>
+    </header>
 
-// ============================================================
-// 0350 - 회원관리 전역 변수 (신규)
-// ============================================================
-var SELECTED_SUBJECT = 'sat';
-var SUBJECTS_LIST = [];
-var SUBJECTS_LOADED = false;
-
-// ============================================================
-// 0400 - Splash 화면 관련 함수 (기존 유지)
-// ============================================================
-// (기존 Splash 함수들을 여기에 그대로 유지)
-
-// ============================================================
-// 0450 - 로그인/회원가입 UI 관련 함수 (신규)
-// ============================================================
-
-// 로그인 화면 표시
-function showLoginScreen() {
-  var loginHTML = `
-    <div id="loginScreen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);z-index:9999;display:flex;justify-content:center;align-items:center;padding:20px;box-sizing:border-box;">
-      <div style="background:white;padding:40px;border-radius:24px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
-        <div style="text-align:center;margin-bottom:25px;">
-          <div style="font-size:3rem;">📚</div>
-          <h2 style="color:#1a1a2e;margin:10px 0 4px;">${LANG.loginTitle || '🔐 SAT 로그인'}</h2>
-          <p style="color:#888;font-size:0.9rem;margin:0;">SAT & PSAT & AP Learning Platform</p>
+    <!-- ============================================================ -->
+    <!-- BLOCK 04: 설정 영역 -->
+    <!-- ============================================================ -->
+    <div id="setupSection" class="setup-area">
+      <div class="cards-container">
+        <div class="card card-new">
+          <div class="card-icon">📖</div>
+          <div class="card-title card-title-new">NEW LESSON</div>
+          <div class="card-sub">Start from a new number</div>
+          <div class="input-wrapper" style="margin-top:6px;">
+            <select id="subjectSelect"><option value="">Loading subjects...</option></select>
+          </div>
+          <div class="input-wrapper" style="margin-top:6px;">
+            <select id="setSelector"><option value="1">Loading sets...</option></select>
+          </div>
+          <div class="input-wrapper">
+            <input type="number" id="startNumber" min="1" placeholder="1-720">
+          </div>
+          <button class="btn-start" id="startQuizBtn">▶ START</button>
+          <div class="card-hint">Select a set or enter a number</div>
         </div>
-        <div style="margin-bottom:15px;">
-          <input type="email" id="loginEmail" placeholder="${LANG.loginEmail || '이메일'}" 
-            style="width:100%;padding:14px 16px;border:2px solid #ddd;border-radius:12px;font-size:16px;box-sizing:border-box;outline:none;transition:all 0.3s;"
-            onfocus="this.style.borderColor='#f5a623'" onblur="this.style.borderColor='#ddd'">
+        <div class="card card-resume" id="resumeCard">
+          <div class="card-icon">⏳</div>
+          <div class="card-title card-title-resume">RESUME</div>
+          <div class="card-sub card-sub-resume">Continue previous session</div>
+          <div id="savedBadgeContainer">
+            <div class="no-session">No saved session <small>Start a new lesson</small></div>
+          </div>
         </div>
-        <div style="margin-bottom:15px;">
-          <input type="password" id="loginPin" placeholder="${LANG.loginPin || 'PIN (4자리 숫자)'}" maxlength="4"
-            style="width:100%;padding:14px 16px;border:2px solid #ddd;border-radius:12px;font-size:16px;box-sizing:border-box;outline:none;transition:all 0.3s;"
-            onfocus="this.style.borderColor='#f5a623'" onblur="this.style.borderColor='#ddd'"
-            onkeypress="if(event.key==='Enter') handleLogin()">
+      </div>
+      <div class="bottom-hint">Progress is saved automatically</div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- BLOCK 05: 퀴즈 본문 -->
+    <!-- ============================================================ -->
+    <div id="quizMain" class="quiz-main">
+      <div id="reviewBanner" class="review-banner" style="display:none;">
+        <span>Review Mode</span>
+        <button id="exitReviewBtn" class="exit-review-btn">EXIT REVIEW</button>
+      </div>
+      <div class="progress-area" style="display:none;">
+        <span class="progress-count" id="progressText">1 / 1</span>
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="quizProgressBar"></div>
         </div>
-        <button id="loginBtn" onclick="handleLogin()" 
-          style="width:100%;padding:16px;background:#f5a623;color:white;border:none;border-radius:12px;font-size:18px;font-weight:700;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 16px rgba(245,166,35,0.3);"
-          onmouseover="this.style.background='#e0941a'" onmouseout="this.style.background='#f5a623'">
-          ${LANG.loginBtn || '로그인'}
-        </button>
-        <div id="loginMessage" style="margin-top:12px;text-align:center;font-size:14px;min-height:24px;color:#e74c3c;"></div>
-        <div style="text-align:center;margin-top:16px;font-size:14px;color:#888;">
-          <a href="#" onclick="showRegisterUI()" style="color:#3498db;text-decoration:none;font-weight:600;">${LANG.registerBtn || '회원가입'}</a>
-          <span style="margin:0 12px;">|</span>
-          <a href="#" onclick="alert('관리자에게 문의해주세요.')" style="color:#888;text-decoration:none;">PIN 찾기</a>
+      </div>
+      <div id="quizContent" style="display:none;">
+        <div id="questionContainer"></div>
+        <div id="explanationBox" class="explanation">
+          <div id="explanationText" style="margin-top:5px;"></div>
         </div>
-        <div style="text-align:center;margin-top:10px;font-size:12px;color:#aaa;">
-          체험 계정: student@gmail.com / 1234
+        <div class="nav-buttons">
+          <button id="prevBtn" class="nav-btn btn-prev">◀ PREV (P)</button>
+          <button id="skipBtn" class="nav-btn btn-skip">SKIP (S)</button>
+          <button id="nextBtn" class="nav-btn btn-next">NEXT (N) ▶</button>
+        </div>
+        <div class="nav-buttons" style="margin-top:10px;">
+          <button id="submitBtn" class="nav-btn btn-submit" style="display:none;">SUBMIT (Enter)</button>
+          <button id="quitBtn" class="nav-btn btn-quit">✕ QUIT</button>
         </div>
       </div>
     </div>
-  `;
-  
-  // 기존 loginScreen 제거 후 추가
-  var existing = document.getElementById('loginScreen');
-  if (existing) existing.remove();
-  
-  var div = document.createElement('div');
-  div.innerHTML = loginHTML;
-  document.body.appendChild(div.firstElementChild);
-}
 
-// 로그인 처리
-async function handleLogin() {
-  var email = document.getElementById('loginEmail').value.trim();
-  var pin = document.getElementById('loginPin').value.trim();
-  var msg = document.getElementById('loginMessage');
-  var btn = document.getElementById('loginBtn');
-  
-  if (!email || !pin) {
-    msg.textContent = LANG.loginError || '이메일과 PIN을 입력해주세요.';
-    msg.style.color = '#e74c3c';
-    return;
-  }
-  
-  msg.textContent = '⏳ 확인 중...';
-  msg.style.color = '#f5a623';
-  btn.disabled = true;
-  btn.textContent = '⏳';
-  
-  try {
-    var response = await fetch(MEMBER_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'login', email: email, pin: pin })
-    });
-    
-    var result = await response.json();
-    
-    if (result.success) {
-      // 로그인 성공
-      CURRENT_USER = result.data;
-      localStorage.setItem(SESSION_KEY, JSON.stringify({
-        email: email,
-        name: result.data.name || email,
-        payment_status: result.data.payment_status,
-        access_subjects: result.data.access_subjects,
-        timestamp: Date.now()
-      }));
-      
-      // 로그인 화면 제거
-      var loginScreen = document.getElementById('loginScreen');
-      if (loginScreen) loginScreen.remove();
-      
-      // 과목 목록 로드 후 앱 시작
-      await loadSubjects();
-      startApp();
-      
-    } else {
-      msg.textContent = result.message || LANG.loginFailed;
-      msg.style.color = '#e74c3c';
-      btn.disabled = false;
-      btn.textContent = LANG.loginBtn || '로그인';
+    <!-- ============================================================ -->
+    <!-- BLOCK 06: 타이머 -->
+    <!-- ============================================================ -->
+    <div class="timer-container" id="timerContainer">
+      <div class="timer-display" id="timerDisplay">00:00:00</div>
+      <div class="timer-label">⏱ TIME</div>
+      <div class="timer-controls">
+        <button class="timer-btn" id="timerPauseBtn">Pause</button>
+        <button class="timer-btn reset-btn" id="timerResetBtn">Reset</button>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- BLOCK 07: 결과 모달 -->
+    <!-- ============================================================ -->
+    <div id="resultModal" class="modal">
+      <div class="modal-content">
+        <h2 style="text-align:center;">📊 RESULT</h2>
+        <div class="stats">
+          <div class="stat-card"><div>✅ CORRECT</div><div class="stat-value" id="correctCount">0</div></div>
+          <div class="stat-card"><div>🎯 ACCURACY</div><div class="stat-value" id="accuracyRate">0%</div></div>
+        </div>
+        <div><strong>Results (Click to move)</strong></div>
+        <div id="resultGrid" class="result-grid"></div>
+        <div class="button-group">
+          <button id="retryAllBtn" class="nav-btn btn-prev" style="flex:1;">🔄 RETRY</button>
+          <button id="reviewWrongBtn" class="nav-btn btn-warning" style="flex:1;">📝 REVIEW</button>
+          <button id="closeModalBtn" class="nav-btn btn-prev" style="flex:1;">✕ CLOSE</button>
+        </div>
+        <div id="loadNextContainer" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- BLOCK 08: 오답 리뷰 모달 -->
+    <!-- ============================================================ -->
+    <div id="wrongModal" class="modal">
+      <div class="modal-content" style="max-width:750px;">
+        <h2 style="text-align:center;">📝 REVIEW</h2>
+        <p style="text-align:center;margin-bottom:12px;color:#666;">Wrong / Skipped / Unanswered</p>
+        <div id="wrongList" class="wrong-list"></div>
+        <div class="button-group">
+          <button id="retryWrongFromReviewBtn" class="nav-btn btn-warning" style="flex:1;">🔄 RETRY WRONG ONLY</button>
+          <button id="closeWrongBtn" class="nav-btn btn-prev" style="flex:1;">✕ CLOSE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- BLOCK 09: 진행 복원 모달 -->
+    <!-- ============================================================ -->
+    <div id="progressModal" class="modal" style="display:none;">
+      <div class="modal-content" style="max-width:500px;text-align:center;border-radius:16px;padding:28px;">
+        <div id="progressModalBody" style="text-align:left;margin:10px 0;line-height:1.8;font-size:15px;"></div>
+        <div class="button-group" style="display:flex;justify-content:center;gap:10px;margin-top:20px;">
+          <button id="progressContinueBtn" class="nav-btn" style="flex:1;max-width:160px;padding:12px 20px;font-size:15px;font-weight:700;border:none;border-radius:12px;cursor:pointer;background:#27ae60;color:#fff;">▶ Continue</button>
+          <button id="progressCancelBtn" class="nav-btn" style="flex:1;max-width:160px;padding:12px 20px;font-size:15px;font-weight:700;border:none;border-radius:12px;cursor:pointer;background:#e74c3c;color:#fff;">Start Fresh</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- BLOCK 10: SAT Chatbot -->
+    <!-- ============================================================ -->
+    <div style="max-width:700px;margin:20px auto 10px;padding:18px 20px;background:#fff;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.06);border:2px solid #f5a623;">
+      <h3 style="margin-bottom:12px;color:#1a1a2e;font-size:1.1rem;">🤖 SAT Chatbot</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input id="chatbotQuestion" placeholder="Ask about this question..." style="flex:1;min-width:160px;padding:12px 16px;border:2px solid #ddd;border-radius:30px;font-size:15px;outline:none;transition:all 0.3s;" onkeypress="if(event.key==='Enter') sendChatbotMessage()">
+          <button onclick="sendChatbotMessage()" style="padding:12px 24px;background:#f5a623;color:#fff;border:none;border-radius:30px;font-weight:700;cursor:pointer;font-size:15px;transition:all 0.3s;white-space:nowrap;" onmouseover="this.style.background='#e0941a'" onmouseout="this.style.background='#f5a623'">Send</button>
+        </div>
+        <div id="chatbotResponse" style="margin-top:6px;padding:14px 16px;background:#f8f9fa;border-radius:14px;min-height:60px;white-space:pre-wrap;border-left:4px solid #f5a623;font-size:14px;line-height:1.6;color:#1a1a2e;">Ask anything about this SAT question.</div>
+      </div>
+    </div>
+
+  </div><!-- /mainContainer -->
+
+  <!-- ============================================================ -->
+  <!-- BLOCK 11: JavaScript 로드 -->
+  <!-- ============================================================ -->
+
+  <!-- main.js (type="module") -->
+  <script type="module" src="https://adopt397-dotcom.github.io/JavaScript/js/main.js?v=28"></script>
+
+  <!-- 임시 initialize 함수 (main.js에 없을 경우 대비) -->
+  <script>
+    function initialize() {
+      console.log('✅ initialize called from HTML (fallback)');
+      var setupSection = document.getElementById('setupSection');
+      var quizMain = document.getElementById('quizMain');
+      if (setupSection) setupSection.style.display = 'block';
+      if (quizMain) quizMain.style.display = 'none';
+      console.log('✅ Fallback initialize complete');
     }
-    
-  } catch(error) {
-    msg.textContent = '⚠️ 서버 연결 오류: ' + error.message;
-    msg.style.color = '#e74c3c';
-    btn.disabled = false;
-    btn.textContent = LANG.loginBtn || '로그인';
-    console.error('Login error:', error);
-  }
-}
+  </script>
 
-// 회원가입 UI 표시
-function showRegisterUI() {
-  var loginScreen = document.getElementById('loginScreen');
-  if (!loginScreen) return;
-  
-  var content = loginScreen.querySelector('div > div');
-  if (!content) return;
-  
-  content.innerHTML = `
-    <div style="text-align:center;margin-bottom:25px;">
-      <div style="font-size:3rem;">📝</div>
-      <h2 style="color:#1a1a2e;margin:10px 0 4px;">회원가입</h2>
-      <p style="color:#888;font-size:0.9rem;margin:0;">간단히 가입하고 시작하세요</p>
-    </div>
-    <div style="margin-bottom:12px;">
-      <input type="email" id="regEmail" placeholder="이메일" 
-        style="width:100%;padding:14px 16px;border:2px solid #ddd;border-radius:12px;font-size:16px;box-sizing:border-box;outline:none;transition:all 0.3s;">
-    </div>
-    <div style="margin-bottom:12px;">
-      <input type="text" id="regName" placeholder="이름 (선택)" 
-        style="width:100%;padding:14px 16px;border:2px solid #ddd;border-radius:12px;font-size:16px;box-sizing:border-box;outline:none;transition:all 0.3s;">
-    </div>
-    <div style="margin-bottom:15px;">
-      <input type="password" id="regPin" placeholder="PIN (4자리 숫자)" maxlength="4"
-        style="width:100%;padding:14px 16px;border:2px solid #ddd;border-radius:12px;font-size:16px;box-sizing:border-box;outline:none;transition:all 0.3s;"
-        onkeypress="if(event.key==='Enter') handleRegister()">
-    </div>
-    <button onclick="handleRegister()" 
-      style="width:100%;padding:16px;background:#27ae60;color:white;border:none;border-radius:12px;font-size:18px;font-weight:700;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 16px rgba(39,174,96,0.3);"
-      onmouseover="this.style.background='#219a52'" onmouseout="this.style.background='#27ae60'">
-      가입하기
-    </button>
-    <div id="regMessage" style="margin-top:12px;text-align:center;font-size:14px;min-height:24px;color:#e74c3c;"></div>
-    <div style="text-align:center;margin-top:16px;font-size:14px;">
-      <a href="#" onclick="showLoginScreen()" style="color:#3498db;text-decoration:none;font-weight:600;">← 로그인으로 돌아가기</a>
-    </div>
-  `;
-}
-
-// 회원가입 처리
-async function handleRegister() {
-  var email = document.getElementById('regEmail').value.trim();
-  var name = document.getElementById('regName').value.trim();
-  var pin = document.getElementById('regPin').value.trim();
-  var msg = document.getElementById('regMessage');
-  var btn = document.querySelector('#loginScreen button');
-  
-  if (!email || !pin) {
-    msg.textContent = '이메일과 PIN은 필수입니다.';
-    msg.style.color = '#e74c3c';
-    return;
-  }
-  
-  if (pin.length !== 4 || isNaN(pin)) {
-    msg.textContent = 'PIN은 4자리 숫자여야 합니다.';
-    msg.style.color = '#e74c3c';
-    return;
-  }
-  
-  msg.textContent = '⏳ 처리 중...';
-  msg.style.color = '#f5a623';
-  if (btn) btn.disabled = true;
-  
-  try {
-    var response = await fetch(MEMBER_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        action: 'register', 
-        email: email, 
-        pin: pin, 
-        name: name || email 
-      })
-    });
-    
-    var result = await response.json();
-    
-    if (result.success) {
-      msg.textContent = '✅ ' + result.message;
-      msg.style.color = '#27ae60';
-      setTimeout(function() {
-        showLoginScreen();
-      }, 1500);
-    } else {
-      msg.textContent = result.message || '회원가입 실패';
-      msg.style.color = '#e74c3c';
-      if (btn) btn.disabled = false;
+  <!-- 실행 스크립트 -->
+  <script type="module">
+    let initializeFn;
+    try {
+      const module = await import('https://adopt397-dotcom.github.io/JavaScript/js/main.js?v=28');
+      initializeFn = module.initialize;
+      console.log('✅ main.js에서 initialize 로드 성공');
+    } catch (e) {
+      console.warn('⚠️ main.js에서 initialize 로드 실패, fallback 사용:', e.message);
+      initializeFn = window.initialize;
     }
-    
-  } catch(error) {
-    msg.textContent = '⚠️ 서버 오류: ' + error.message;
-    msg.style.color = '#e74c3c';
-    if (btn) btn.disabled = false;
-    console.error('Register error:', error);
-  }
-}
 
-// ============================================================
-// 0500 - 기존 유틸리티 함수
-// ============================================================
-// (기존 escapeHtml, getAnswerLetter, hasRealChoices, randomizeChoicesOnly 등 유지)
-
-// ============================================================
-// 0550 - 회원관리 유틸리티 함수 (신규)
-// ============================================================
-
-// 자동 로그인 체크
-function checkAutoLogin() {
-  var session = localStorage.getItem(SESSION_KEY);
-  if (!session) return false;
-  
-  try {
-    var data = JSON.parse(session);
-    // 7일 이내인지 확인
-    if (Date.now() - data.timestamp < 7 * 24 * 60 * 60 * 1000) {
-      CURRENT_USER = {
-        email: data.email,
-        name: data.name || data.email,
-        payment_status: data.payment_status,
-        access_subjects: data.access_subjects
+    document.addEventListener('DOMContentLoaded', function() {
+      window.sendChatbotMessage = async function() {
+        const questionInput = document.getElementById('chatbotQuestion');
+        const responseDiv = document.getElementById('chatbotResponse');
+        const question = questionInput.value.trim();
+        if (!question) {
+          responseDiv.innerHTML = 'Please enter a question.';
+          return;
+        }
+        let problemNumber = '1';
+        const qNumElement = document.querySelector('.q-num');
+        if (qNumElement) {
+          const match = qNumElement.textContent.match(/\(Original #(\d+)\)/);
+          if (match) problemNumber = match[1];
+        }
+        responseDiv.innerHTML = '⏳ Processing...';
+        questionInput.disabled = true;
+        try {
+          const res = await fetch('https://sat-bot-07020143.vercel.app/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ problemNumber: problemNumber, question: question })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            responseDiv.innerHTML = '🤖 ' + (data.message || data.response || 'No response.');
+          } else {
+            responseDiv.innerHTML = '❌ Error: ' + (data.error || 'Unknown error');
+          }
+        } catch (e) {
+          responseDiv.innerHTML = '❌ Network error: Could not reach server.';
+          console.error('Chatbot error:', e);
+        } finally {
+          questionInput.disabled = false;
+          questionInput.value = '';
+          questionInput.focus();
+        }
       };
-      return true;
-    } else {
-      localStorage.removeItem(SESSION_KEY);
-    }
-  } catch(e) {
-    localStorage.removeItem(SESSION_KEY);
-  }
-  return false;
-}
 
-// 과목 목록 로드
-async function loadSubjects() {
-  if (SUBJECTS_LOADED) return SUBJECTS_LIST;
-  
-  try {
-    var response = await fetch(MEMBER_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'subjects' })
-    });
-    
-    var result = await response.json();
-    
-    if (result.success && result.data) {
-      SUBJECTS_LIST = result.data;
-      SUBJECTS_LOADED = true;
-      return SUBJECTS_LIST;
-    } else {
-      console.warn('Failed to load subjects:', result.message);
-      return [];
-    }
-  } catch(error) {
-    console.error('Load subjects error:', error);
-    return [];
-  }
-}
-
-// 사용자 접근 가능 과목 필터링
-function getAccessibleSubjects() {
-  if (!CURRENT_USER || !CURRENT_USER.access_subjects) {
-    return SUBJECTS_LIST;
-  }
-  
-  try {
-    var accessList = JSON.parse(CURRENT_USER.access_subjects);
-    return SUBJECTS_LIST.filter(function(s) {
-      return accessList.indexOf(s.subject) !== -1;
-    });
-  } catch(e) {
-    return SUBJECTS_LIST;
-  }
-}
-
-// 로그아웃
-function logout() {
-  if (confirm('로그아웃 하시겠습니까?')) {
-    localStorage.removeItem(SESSION_KEY);
-    CURRENT_USER = null;
-    window.location.reload();
-  }
-}
-
-// ============================================================
-// 0600~1400 - 기존 기능 (숫자 블록 유지)
-// ============================================================
-// (기존 startAutoSave, goNext, goPrev, skipQuestion, submitSubjective,
-//  showResults, showWrongAnswersList, startWrongOnlyReview,
-//  타이머, 렌더링 함수 등 그대로 유지)
-
-// ============================================================
-// 1500 - startQuizWithNumber (수정: 과목 지원)
-// ============================================================
-async function startQuizWithNumber(uiStartNumber) {
-  if (isNaN(uiStartNumber) || uiStartNumber < 1) uiStartNumber = 1;
-  
-  var subject = SELECTED_SUBJECT || 'sat';
-  
-  if (uiStartNumber > TOTAL_QUESTIONS) {
-    console.log('Number ' + uiStartNumber + ' exceeds total ' + TOTAL_QUESTIONS + ', looping back to 1.');
-    uiStartNumber = 1;
-  }
-  
-  var setNumber = Math.ceil(uiStartNumber / QUESTIONS_PER_SET);
-  var setStart = (setNumber - 1) * QUESTIONS_PER_SET + 1;
-  var startNum = uiStartNumber;
-  if (uiStartNumber < setStart || uiStartNumber > Math.min(setNumber * QUESTIONS_PER_SET, TOTAL_QUESTIONS)) {
-    startNum = setStart;
-  }
-  
-  currentStartNumber = startNum;
-  
-  var overlay = showLoadingOverlay('Loading ' + QUESTIONS_PER_SET + ' questions from ' + startNum + '...');
-  
-  try {
-    var questions = await load50Questions(startNum, subject);
-    if (questions.length === 0) throw new Error('No question data received');
-    
-    masterQuestions = questions.slice();
-    currentQuestions = masterQuestions.map(function(q) { return randomizeChoicesOnly(q); });
-    userAnswers = new Array(currentQuestions.length).fill(null);
-    correctCount = 0;
-    currentIndex = 0;
-    isReviewMode = false;
-    
-    startAutoSave();
-    hideLoadingOverlay();
-    
-    DOM.setupSection.style.display = 'none';
-    DOM.quizMain.style.display = 'block';
-    if (DOM.quizContent) DOM.quizContent.style.display = 'block';
-    if (DOM.progressArea) DOM.progressArea.style.display = 'flex';
-    
-    renderCurrentQuestion();
-    resetTimer();
-    startTimer();
-    
-  } catch(err) {
-    hideLoadingOverlay();
-    alert(LANG.loadError + ' ' + err.message);
-    console.error(err);
-  }
-}
-
-// ============================================================
-// 0850 - 회원 API 호출 함수 (신규)
-// ============================================================
-
-// API 호출 공통 함수 (토큰 포함)
-async function callMemberAPI(action, data) {
-  var payload = { action: action, data: data || {} };
-  
-  // 세션 토큰이 있으면 포함
-  var session = localStorage.getItem(SESSION_KEY);
-  if (session) {
-    try {
-      var sessionData = JSON.parse(session);
-      payload.email = sessionData.email;
-    } catch(e) {}
-  }
-  
-  var response = await fetch(MEMBER_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  
-  return await response.json();
-}
-
-// ============================================================
-// 0900 - load50Questions (수정: 과목 지원)
-// ============================================================
-async function load50Questions(uiStartNumber, subject) {
-  var subjectName = subject || 'sat';
-  
-  if (TOTAL_QUESTIONS === 0) await detectTotalQuestions(subjectName);
-  
-  try {
-    var url = ORIGINAL_API_URL + '?start=' + uiStartNumber + '&limit=' + QUESTIONS_PER_SET + '&subject=' + subjectName;
-    console.log('Requesting questions (direct):', url);
-    
-    var response = await fetch(url);
-    if (!response.ok) throw new Error('HTTP ' + response.status);
-    
-    var text = await response.text();
-    if (text.trim().startsWith('<IDOCTYPE') || text.trim().startsWith('<html>')) {
-      console.error('Received HTML. Check Apps Script deployment.');
-      throw new Error('HTML response - check Apps Script URL');
-    }
-    
-    var data = JSON.parse(text);
-    var questionsData = [];
-    
-    if (Array.isArray(data)) {
-      questionsData = data;
-    } else if (data && typeof data === 'object') {
-      if (Array.isArray(data.data)) questionsData = data.data;
-      else if (Array.isArray(data.questions)) questionsData = data.questions;
-      else if (Array.isArray(data.items)) questionsData = data.items;
-      else {
-        var keys = Object.keys(data);
-        if (keys.length > 0) {
-          questionsData = keys.map(function(key) {
-            var item = data[key];
-            if (typeof item === 'object' && item !== null) {
-              item._key = key;
-              return item;
-            }
-            return { question: String(item), answer: '1', _key: key };
-          });
-        }
-      }
-    }
-    
-    if (!Array.isArray(questionsData) || questionsData.length === 0) {
-      throw new Error('No question data received');
-    }
-    
-    var processed = [];
-    for (var idx = 0; idx < questionsData.length; idx++) {
-      try {
-        var item = questionsData[idx];
-        var parsed = item;
-        if (typeof item === 'string') {
-          try { parsed = JSON.parse(item); } catch(e) { parsed = { question: item, answer: '1' }; }
-        }
-        if (!parsed || typeof parsed !== 'object') {
-          parsed = { question: String(item), answer: '1' };
-        }
-        
-        var rawQuestion = parsed.Q || parsed.question || parsed.q || parsed.문제 || parsed.text || 'Question ' + (uiStartNumber + idx);
-        var rawPassage = parsed.passage || parsed.P || parsed.p || parsed.지문 || '';
-        var choices = {};
-        choices['1'] = parsed['1'] || '';
-        choices['2'] = parsed['2'] || '';
-        choices['3'] = parsed['3'] || '';
-        choices['4'] = parsed['4'] || '';
-        
-        var finalAnswer = '1';
-        if (parsed.A !== undefined && parsed.A !== null && parsed.A !== "") {
-          finalAnswer = String(parsed.A).trim();
-        } else if (parsed.answer !== undefined && parsed.answer !== null && parsed.answer !== "") {
-          finalAnswer = String(parsed.answer).trim();
-        } else if (parsed.a !== undefined && parsed.a !== null && parsed.a !== "") {
-          finalAnswer = String(parsed.a).trim();
-        }
-        
-        var originalNumber = parsed.N || parsed.originalNumber || parsed.n || (uiStartNumber + idx);
-        
-        processed.push({
-          N: originalNumber,
-          question: rawQuestion,
-          passage: rawPassage,
-          choices: choices,
-          answer: finalAnswer,
-          explanation: parsed.explanation || parsed.E || parsed.e || 'No explanation available.',
-          graphic: parsed.graphic || parsed.G || parsed.g || '',
-          originalNumber: originalNumber,
-          A: parsed.A || parsed.answer || ''
+      const startBtn = document.getElementById('startQuizBtn');
+      if (startBtn) {
+        startBtn.addEventListener('click', function(e) {
+          if (this.disabled) return;
+          this.disabled = true;
+          this.textContent = '⏳ Loading...';
+          this.style.opacity = '0.6';
+          this.style.cursor = 'wait';
+          setTimeout(() => {
+            this.disabled = false;
+            this.textContent = '▶ START';
+            this.style.opacity = '1';
+            this.style.cursor = 'pointer';
+          }, 5000);
         });
-        
-      } catch(e) {
-        console.warn('Parse error for item', idx, ':', e);
       }
-    }
-    
-    if (processed.length === 0) throw new Error('No valid question data');
-    return processed;
-    
-  } catch(err) {
-    console.error('Load failed:', err);
-    return [];
-  }
-}
 
-// ============================================================
-// 1600 - renderGraphic (기존 유지)
-// ============================================================
-
-// ============================================================
-// 1700 - 회원관리 핵심 함수 (신규)
-// ============================================================
-
-// 앱 시작 (로그인 후)
-function startApp() {
-  // Setup 영역 표시
-  var loginScreen = document.getElementById('loginScreen');
-  if (loginScreen) loginScreen.remove();
-  
-  DOM.setupSection = document.getElementById('setupSection');
-  DOM.quizMain = document.getElementById('quizMain');
-  DOM.quizContent = document.getElementById('quizContent');
-  DOM.startNumberInput = document.getElementById('startNumber');
-  DOM.startQuizBtn = document.getElementById('startQuizBtn');
-  DOM.maxNumberSpan = document.getElementById('maxNumber');
-  DOM.progressText = document.getElementById('progressText');
-  DOM.quizProgressBar = document.getElementById('quizProgressBar');
-  DOM.questionContainer = document.getElementById('questionContainer');
-  DOM.explanationBox = document.getElementById('explanationBox');
-  DOM.explanationText = document.getElementById('explanationText');
-  DOM.prevBtn = document.getElementById('prevBtn');
-  DOM.nextBtn = document.getElementById('nextBtn');
-  DOM.skipBtn = document.getElementById('skipBtn');
-  DOM.submitBtn = document.getElementById('submitBtn');
-  DOM.quitBtn = document.getElementById('quitBtn');
-  DOM.resultModal = document.getElementById('resultModal');
-  DOM.correctCountSpan = document.getElementById('correctCount');
-  DOM.accuracyRateSpan = document.getElementById('accuracyRate');
-  DOM.resultGrid = document.getElementById('resultGrid');
-  DOM.retryAllBtn = document.getElementById('retryAllBtn');
-  DOM.reviewWrongBtn = document.getElementById('reviewWrongBtn');
-  DOM.closeModalBtn = document.getElementById('closeModalBtn');
-  DOM.wrongModal = document.getElementById('wrongModal');
-  DOM.wrongListDiv = document.getElementById('wrongList');
-  DOM.closeWrongBtn = document.getElementById('closeWrongBtn');
-  DOM.retryWrongFromReviewBtn = document.getElementById('retryWrongFromReviewBtn');
-  DOM.reviewBanner = document.getElementById('reviewBanner');
-  DOM.savedBadgeContainer = document.getElementById('savedBadgeContainer');
-  DOM.loadNextContainer = document.getElementById('loadNextContainer');
-  DOM.mainContainer = document.getElementById('mainContainer');
-  DOM.maxNumberDisplay = document.getElementById('maxNumberDisplay');
-  DOM.setSelector = document.getElementById('setSelector');
-  DOM.progressArea = document.querySelector('.progress-area');
-  if (!DOM.progressArea) DOM.progressArea = document.getElementById('progressArea');
-  
-  // subject 선택 드롭다운 추가
-  addSubjectSelector();
-  
-  // 과목 선택 이벤트
-  var subjectSelect = document.getElementById('subjectSelect');
-  if (subjectSelect) {
-    subjectSelect.addEventListener('change', function() {
-      SELECTED_SUBJECT = this.value;
-      updateSetSelectorForSubject(SELECTED_SUBJECT);
-    });
-  }
-  
-  initTimer();
-  
-  // 초기화
-  (async function() {
-    try {
-      var totalQuestions = await detectTotalQuestions(SELECTED_SUBJECT || 'sat');
-      if (totalQuestions === 0) {
-        TOTAL_QUESTIONS = 720;
-        localStorage.setItem(TOTAL_CACHE_KEY, String(TOTAL_QUESTIONS));
-      }
-      updateSetSelectorForSubject(SELECTED_SUBJECT || 'sat');
-      
-      // 저장된 진행 상황 확인
-      var saved = loadProgress();
-      if (saved && saved.currentQuestions && saved.currentQuestions.length > 0) {
-        var answered = saved.userAnswers.filter(function(a) { return a !== null && a !== -1; }).length;
-        var timeStr = new Date(saved.timestamp).toLocaleString();
-        DOM.savedBadgeContainer.innerHTML = 
-          '<div class="resume-badge" id="resumeBadge">' +
-            '<div class="count">' + answered + ' / ' + saved.currentQuestions.length + ' answered</div>' +
-            '<div class="time">' + timeStr + '</div>' +
-            '<div class="hint">Click to resume</div>' +
-          '</div>';
-        
-        var resumeBadge = document.getElementById('resumeBadge');
-        if (resumeBadge) {
-          resumeBadge.addEventListener('click', function(e) {
-            e.stopPropagation();
-            var savedData = loadProgress();
-            if (savedData) showProgressModal(savedData);
-          });
-        }
+      if (typeof initializeFn === 'function') {
+        initializeFn();
       } else {
-        DOM.savedBadgeContainer.innerHTML = 
-          '<div class="no-session">No saved session<small>Start a new lesson</small></div>';
+        console.error('❌ initialize 함수를 찾을 수 없습니다.');
+        const setup = document.getElementById('setupSection');
+        if (setup) setup.style.display = 'block';
       }
-      
-      attachEvents();
-      
-      DOM.setupSection.style.display = 'block';
-      DOM.quizMain.style.display = 'none';
-      
-    } catch(e) {
-      console.error('Initialization error:', e);
-      showSplashError(e.message || 'Initialization failed');
-    }
-  })();
-}
+    });
+  </script>
 
-// 과목 선택 드롭다운 추가
-function addSubjectSelector() {
-  var setupSection = document.getElementById('setupSection');
-  if (!setupSection) return;
-  
-  var cardsContainer = setupSection.querySelector('.cards-container');
-  if (!cardsContainer) return;
-  
-  var cardNew = cardsContainer.querySelector('.card-new');
-  if (!cardNew) return;
-  
-  // subject 드롭다운이 이미 있으면 스킵
-  if (document.getElementById('subjectSelect')) return;
-  
-  var subjectDiv = document.createElement('div');
-  subjectDiv.className = 'input-wrapper';
-  subjectDiv.style.marginTop = '4px';
-  
-  var select = document.createElement('select');
-  select.id = 'subjectSelect';
-  select.style.cssText = 'width:100%;padding:14px 16px;font-size:16px;font-weight:600;border:2px solid #ddd;border-radius:12px;text-align:center;background:#f8f9fa;outline:none;transition:all .3s;color:#1a1a2e;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%23666\' d=\'M6 8L1 3h10z\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;';
-  select.innerHTML = '<option value="">' + (LANG.loadingSubjects || '과목 로딩 중...') + '</option>';
-  
-  // 과목 목록 채우기
-  populateSubjectSelect(select);
-  
-  subjectDiv.appendChild(select);
-  
-  // setSelector 앞에 삽입
-  var setSelectorWrapper = cardNew.querySelector('.input-wrapper');
-  if (setSelectorWrapper) {
-    cardNew.insertBefore(subjectDiv, setSelectorWrapper);
-  } else {
-    cardNew.appendChild(subjectDiv);
-  }
-}
-
-// 과목 선택 드롭다운 채우기
-function populateSubjectSelect(select) {
-  if (!select) return;
-  
-  var subjects = getAccessibleSubjects();
-  
-  if (!subjects || subjects.length === 0) {
-    select.innerHTML = '<option value="sat">SAT (기본)</option>';
-    return;
-  }
-  
-  select.innerHTML = '';
-  subjects.forEach(function(s) {
-    var option = document.createElement('option');
-    option.value = s.subject;
-    option.textContent = s.display_name + ' (' + s.total_questions + '문제)';
-    select.appendChild(option);
-  });
-  
-  // 기본값: sat 또는 첫 번째 과목
-  var defaultSubject = 'sat';
-  var found = false;
-  for (var i = 0; i < select.options.length; i++) {
-    if (select.options[i].value === defaultSubject) {
-      select.value = defaultSubject;
-      found = true;
-      break;
-    }
-  }
-  if (!found && select.options.length > 0) {
-    select.value = select.options[0].value;
-  }
-  
-  SELECTED_SUBJECT = select.value || 'sat';
-}
-
-// 과목별 Set 선택기 업데이트
-function updateSetSelectorForSubject(subject) {
-  var setSelector = document.getElementById('setSelector');
-  if (!setSelector) return;
-  
-  // 과목별 총 문제수 가져오기
-  var totalQuestions = 0;
-  var subjects = getAccessibleSubjects();
-  for (var i = 0; i < subjects.length; i++) {
-    if (subjects[i].subject === subject) {
-      totalQuestions = subjects[i].total_questions || 0;
-      break;
-    }
-  }
-  
-  if (totalQuestions === 0) totalQuestions = TOTAL_QUESTIONS || 720;
-  
-  var totalSets = Math.ceil(totalQuestions / QUESTIONS_PER_SET);
-  
-  // 기존 옵션 제거
-  while (setSelector.options.length > 0) {
-    setSelector.remove(0);
-  }
-  
-  for (var i = 1; i <= totalSets; i++) {
-    var start = (i - 1) * QUESTIONS_PER_SET + 1;
-    var end = Math.min(i * QUESTIONS_PER_SET, totalQuestions);
-    var option = document.createElement('option');
-    option.value = i;
-    option.textContent = 'Set ' + i + ' (Q' + start + '-' + end + ')';
-    setSelector.appendChild(option);
-  }
-  
-  // maxNumberDisplay 업데이트
-  var maxStartNumber = Math.max(1, totalQuestions - QUESTIONS_PER_SET + 1);
-  if (DOM.maxNumberDisplay) {
-    DOM.maxNumberDisplay.innerText = maxStartNumber.toLocaleString();
-  }
-  if (DOM.startNumberInput) {
-    DOM.startNumberInput.placeholder = '1 ~ ' + maxStartNumber.toLocaleString();
-    DOM.startNumberInput.max = maxStartNumber;
-  }
-  
-  if (setSelector.options.length > 0) {
-    setSelector.value = '1';
-  }
-  if (DOM.startNumberInput) {
-    DOM.startNumberInput.value = '1';
-  }
-}
-
-// ============================================================
-// 9900 - 기존 내보내기
-// ============================================================
-// (기존 window.xxx = xxx; export {...} 유지)
-
-// ============================================================
-// 9950 - 회원// ============================================================
-// 9950 - 회원관리 내보내기 (신규)
-// ============================================================
-window.handleLogin = handleLogin;
-window.handleRegister = handleRegister;
-window.showRegisterUI = showRegisterUI;
-window.showLoginScreen = showLoginScreen;
-window.logout = logout;
-window.loadSubjects = loadSubjects;
-window.checkAutoLogin = checkAutoLogin;
-
-// ============================================================
-// 9999 - 최종 내보내기 (기존 + 회원관리)
-// ============================================================
-
-// 기존 함수들 export
-export {
-  initialize,
-  startQuizWithNumber,
-  renderGraphic,
-  renderCurrentQuestion,
-  showExplanation,
-  goNext,
-  goPrev,
-  skipQuestion,
-  submitSubjective,
-  showResults,
-  showWrongAnswersList,
-  startWrongOnlyReview,
-  saveProgress,
-  loadProgress,
-  clearProgress
-};
-
-// 회원관리 함수들 export
-export {
-  handleLogin,
-  handleRegister,
-  showRegisterUI,
-  showLoginScreen,
-  logout,
-  loadSubjects,
-  checkAutoLogin,
-  startApp
-};
-
-// ============================================================
-// 파일 끝 (EOF)  ← 여기서 끝! 아무것도 없음
-// ============================================================
+</body>
+</html>
