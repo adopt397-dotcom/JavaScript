@@ -252,9 +252,7 @@ function randomizeChoicesOnly(q) {
 // ============================================================
 // 0550 - 회원관리 유틸리티
 // ============================================================
-// ============================================================
-// 0550 - loadSubjects (GET 방식으로 변경 - preflight 완전 회피)
-// ============================================================
+
 async function loadSubjects() {
   console.log("🔍 loadSubjects 시작");
 
@@ -300,28 +298,55 @@ async function loadSubjects() {
 // 0555 - checkAutoLogin (신규)
 // ============================================================
 // ============================================================
-// 0555 - checkAutoLogin (신규)
+// 0650 - 회원관리: 회원가입 처리 (신규 추가)
 // ============================================================
-function checkAutoLogin() {
-  var session = localStorage.getItem(SESSION_KEY);
-  if (!session) return false;
-  try {
-    var data = JSON.parse(session);
-    if (Date.now() - data.timestamp < 7 * 24 * 60 * 60 * 1000) {
-      CURRENT_USER = {
-        email: data.email,
-        name: data.name || data.email,
-        payment_status: data.payment_status,
-        access_subjects: data.access_subjects
-      };
-      return true;
-    } else {
-      localStorage.removeItem(SESSION_KEY);
-    }
-  } catch(e) {
-    localStorage.removeItem(SESSION_KEY);
+function handleRegister(email, pin, name) {
+  Logger.log('🔍 회원가입 시도: ' + email);
+  Logger.log('📝 데이터: email=' + email + ', pin=' + pin + ', name=' + name);
+
+  if (!email || !pin) {
+    Logger.log('❌ 이메일 또는 PIN 없음');
+    return createResponse(false, '이메일과 PIN은 필수입니다.');
   }
-  return false;
+
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(MEMBER_SHEET);
+  if (!sheet) {
+    Logger.log('❌ members 시트 없음');
+    return createResponse(false, '회원 정보를 찾을 수 없습니다.');
+  }
+
+  // 중복 확인
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][1] === email) {
+      Logger.log('❌ 중복 이메일: ' + email);
+      return createResponse(false, '이미 등록된 이메일입니다.');
+    }
+  }
+
+  // 새 회원 추가 (id는 안전하게 생성)
+  var now = new Date();
+  var newId = sheet.getLastRow() + 1;
+
+  sheet.appendRow([
+    newId,              // A: id
+    email,              // B: email
+    pin,                // C: pin
+    name || email,      // D: name
+    'none',             // E: payment_status
+    '',                 // F: payment_date
+    '',                 // G: expired_date
+    now,                // H: created_at
+    '',                 // I: last_login
+    '',                 // J: memo
+    '["sat"]',          // K: access_subjects
+    '',                 // L: session_token
+    'personal',         // M: account_type
+    1                   // N: max_sessions
+  ]);
+
+  Logger.log('✅ 회원가입 성공: ' + email);
+  return createResponse(true, '회원가입이 완료되었습니다.');
 }
 
 // ============================================================
