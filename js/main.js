@@ -1123,7 +1123,7 @@ function startApp() {
     console.log("✅ 메인 컨테이너 표시");
   }
 
-  // ✅ 즉시 설정 화면 표시
+  // ✅ 즉시 설정 화면 표시 (데이터 로딩과 별개로)
   var setupSection = document.getElementById('setupSection');
   if (setupSection) {
     setupSection.style.display = 'block';
@@ -1143,7 +1143,7 @@ function startApp() {
     }, 500);
   }
 
-  // initialize는 백그라운드에서 실행
+  // initialize는 백그라운드에서 실행 (데이터 로딩)
   initialize().then(function() {
     console.log("✅ initialize 백그라운드 완료");
   }).catch(function(err) {
