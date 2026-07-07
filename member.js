@@ -2,7 +2,7 @@
 // member.js - Tilda 최적화 최종 버전
 // ============================================================
 
-const MEMBER_API_URL = 'https://script.google.com/macros/s/AKfycbzlfDe9kuWBEnleZaOwDHa6caG32IFrwHd3I-4RWVtIP2wOCDeo4El2n9xIpjTpmISckw/exec';
+const MEMBER_API_URL = 'https://script.google.com/macros/s/AKfycbxPJQR4jrL0aOwqugPV03L0uSaGQ7M4Ofb-uYKWT-PVrQhLcsCi4xFtgjinmBMXG_uQ6A/exec';
 const STORAGE_KEY = 'sat_member_session';
 
 let currentUser = null;
