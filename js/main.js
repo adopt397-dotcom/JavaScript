@@ -1190,7 +1190,7 @@ window.loadProgress = loadProgress;
 window.clearProgress = clearProgress;
 
 window.handleLogin = handleLogin;
-window.handleRegister = handleRegister;
+window.handleRegister = handleRegister;    // ✅ 이 줄이 있어야 함
 window.showRegisterUI = showRegisterUI;
 window.showLoginScreen = showLoginScreen;
 window.logout = logout;
