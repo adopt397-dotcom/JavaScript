@@ -5,10 +5,11 @@ const MEMBER_API_URL = 'https://script.google.com/macros/s/AKfycby9g0f27gyjUuHdn
 const STORAGE_KEY = 'sat_member_session';
 
 // ============================================================
-// BLOCK 0100: 상태 관리 (STATE)
+// BLOCK 0100: 상태 관리 (STATE) - 수정 완료
 // ============================================================
 let currentUser = null;
 let currentToken = null;
+let _memberInitialized = false;  // ← 이 줄 추가!
 
 let memberUI = {
   statusBar: null,
@@ -21,10 +22,8 @@ let memberUI = {
 // ============================================================
 // BLOCK 0200: 초기화 함수 (INIT) - 수정 완료
 // ============================================================
-let _memberInitialized = false;
-
 function initMemberSystem() {
-  // 이미 초기화되었으면 다시 실행하지 않음 (방어 코드)
+  // 이미 초기화되었으면 다시 실행하지 않음
   if (_memberInitialized) {
     console.log('🔐 회원 시스템 이미 초기화됨, 건너뜀');
     return;
@@ -34,7 +33,7 @@ function initMemberSystem() {
   createStatusBar();
   createModals();
   checkSession();
-  _memberInitialized = true;
+  _memberInitialized = true;  // ← 초기화 완료 표시
 }
 
 // ============================================================
@@ -257,9 +256,11 @@ function verifyToken() {
 }
 
 // ============================================================
-// BLOCK 0700: UI 업데이트 (UI UPDATE)
+// BLOCK 0700: UI 업데이트 (UI UPDATE) - 디버깅 추가
 // ============================================================
 function updateUI(loggedIn) {
+  console.log('🔄 updateUI 호출됨, loggedIn:', loggedIn, 'currentUser:', currentUser);
+  
   const loginBtn = document.getElementById('loginBtn');
   const registerBtn = document.getElementById('registerBtn');
   const logoutBtn = document.getElementById('logoutBtn');
@@ -268,7 +269,14 @@ function updateUI(loggedIn) {
   const userName = document.getElementById('userNameDisplay');
   const userStatus = document.getElementById('userStatusDisplay');
   
+  // 요소가 없으면 경고만 출력
+  if (!loginBtn || !userName) {
+    console.warn('⚠️ UI 요소를 찾을 수 없습니다.');
+    return;
+  }
+  
   if (loggedIn && currentUser) {
+    console.log('✅ 로그인 상태 UI 업데이트:', currentUser.name);
     loginBtn.style.display = 'none';
     registerBtn.style.display = 'none';
     logoutBtn.style.display = 'inline-block';
@@ -279,6 +287,7 @@ function updateUI(loggedIn) {
     userStatus.style.color = currentUser.payment_status === 'active' ? '#2ecc71' : '#f39c12';
     enableQuiz(true);
   } else {
+    console.log('❌ 비회원 상태 UI 업데이트');
     loginBtn.style.display = 'inline-block';
     registerBtn.style.display = 'inline-block';
     logoutBtn.style.display = 'none';
