@@ -1,5 +1,5 @@
 // ============================================================
-// member.js - 초간단 버전 (무조건 동작)
+// member.js - Tilda 최적화 최종 버전
 // ============================================================
 
 const MEMBER_API_URL = 'https://script.google.com/macros/s/AKfycby9g0f27gyjUuHdnw9-tZxr8Qmhbdm_864Ons0Ai6h1z87LOf0nYZBdWlAiJ_lgnpyB/exec';
@@ -7,17 +7,29 @@ const STORAGE_KEY = 'sat_member_session';
 
 let currentUser = null;
 let currentToken = null;
+let isInitialized = false;
 
 // ============================================================
-// 초기화 함수 (페이지 로드 시 실행)
+// 1. 초기화 (무조건 body 맨 앞에 상태바 생성)
 // ============================================================
 function initMemberSystem() {
-  console.log('🔐 초간단 member.js 실행됨!');
+  if (isInitialized) {
+    console.log('ℹ️ 이미 초기화됨');
+    return;
+  }
+  isInitialized = true;
   
-  // 1. 상태바 강제 생성 (헤더 상관없이 body 맨 위에)
+  console.log('🔐 최종 버전 member.js 실행');
+
+  // 1) 상태바를 body 맨 앞에 강제 삽입 (헤더 무시)
+  const existingBar = document.getElementById('userStatusBar');
+  if (existingBar) existingBar.remove();
+
   const bar = document.createElement('div');
   bar.id = 'userStatusBar';
   bar.style.cssText = `
+    position: relative;
+    z-index: 9999;
     background: #1a2a4a;
     padding: 10px 20px;
     display: flex;
@@ -25,43 +37,38 @@ function initMemberSystem() {
     align-items: center;
     color: #fff;
     font-size: 14px;
-    border-bottom: 2px solid #f5a623;
+    border-bottom: 3px solid #f5a623;
     width: 100%;
     box-sizing: border-box;
+    font-family: 'Segoe UI', sans-serif;
   `;
   bar.innerHTML = `
     <div>
-      👤 <span id="userNameDisplay">비회원</span>
-      <span id="userStatusDisplay" style="margin-left:10px;font-size:12px;color:#f39c12;">로그인이 필요합니다</span>
+      👤 <span id="userNameDisplay" style="font-weight:600;">비회원</span>
+      <span id="userStatusDisplay" style="margin-left:12px;font-size:12px;color:#f39c12;">로그인이 필요합니다</span>
     </div>
     <div>
-      <button id="loginBtn" style="background:#f5a623;border:none;color:#fff;padding:8px 20px;border-radius:8px;cursor:pointer;font-weight:600;">로그인</button>
-      <button id="registerBtn" style="background:transparent;border:1px solid #f5a623;color:#f5a623;padding:8px 20px;border-radius:8px;cursor:pointer;font-weight:600;margin-left:8px;">회원가입</button>
-      <button id="logoutBtn" style="display:none;background:#e74c3c;border:none;color:#fff;padding:8px 20px;border-radius:8px;cursor:pointer;font-weight:600;margin-left:8px;">로그아웃</button>
+      <button id="loginBtn" style="background:#f5a623;border:none;color:#fff;padding:8px 20px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;">로그인</button>
+      <button id="registerBtn" style="background:transparent;border:1px solid #f5a623;color:#f5a623;padding:8px 20px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;margin-left:8px;">회원가입</button>
+      <button id="logoutBtn" style="display:none;background:#e74c3c;border:none;color:#fff;padding:8px 20px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;margin-left:8px;">로그아웃</button>
     </div>
   `;
-  
+
   // body 맨 앞에 삽입 (무조건 보임)
   document.body.insertBefore(bar, document.body.firstChild);
-  console.log('✅ 상태바 생성 완료! (body 맨 앞)');
-  
-  // 2. 버튼 이벤트 연결
-  document.getElementById('loginBtn').addEventListener('click', function() {
-    showLoginModal();
-  });
-  document.getElementById('registerBtn').addEventListener('click', function() {
-    showRegisterModal();
-  });
-  document.getElementById('logoutBtn').addEventListener('click', function() {
-    logout();
-  });
-  
-  // 3. 저장된 세션 확인
+  console.log('✅ 상태바 생성 완료 (body 맨 앞)');
+
+  // 2) 버튼 이벤트 연결
+  document.getElementById('loginBtn').addEventListener('click', showLoginModal);
+  document.getElementById('registerBtn').addEventListener('click', showRegisterModal);
+  document.getElementById('logoutBtn').addEventListener('click', logout);
+
+  // 3) 저장된 세션 복원
   checkSession();
 }
 
 // ============================================================
-// 세션 확인
+// 2. 세션 복원
 // ============================================================
 function checkSession() {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -81,17 +88,20 @@ function checkSession() {
 }
 
 // ============================================================
-// UI 업데이트
+// 3. UI 업데이트 (버튼/이름/상태)
 // ============================================================
 function updateUI(loggedIn) {
-  console.log('🔄 updateUI:', loggedIn);
-  
   const loginBtn = document.getElementById('loginBtn');
   const registerBtn = document.getElementById('registerBtn');
   const logoutBtn = document.getElementById('logoutBtn');
   const userName = document.getElementById('userNameDisplay');
   const userStatus = document.getElementById('userStatusDisplay');
-  
+
+  if (!loginBtn) {
+    console.warn('⚠️ UI 요소 없음 - 아직 DOM 준비 안 됨');
+    return;
+  }
+
   if (loggedIn && currentUser) {
     loginBtn.style.display = 'none';
     registerBtn.style.display = 'none';
@@ -100,6 +110,7 @@ function updateUI(loggedIn) {
     userStatus.textContent = '✅ 구독중';
     userStatus.style.color = '#2ecc71';
     enableQuiz(true);
+    console.log('✅ 로그인 UI 적용됨');
   } else {
     loginBtn.style.display = 'inline-block';
     registerBtn.style.display = 'inline-block';
@@ -108,11 +119,12 @@ function updateUI(loggedIn) {
     userStatus.textContent = '로그인이 필요합니다';
     userStatus.style.color = '#f39c12';
     enableQuiz(false);
+    console.log('❌ 비회원 UI 적용됨');
   }
 }
 
 // ============================================================
-// 퀴즈 활성화
+// 4. START 버튼 활성화/비활성화
 // ============================================================
 function enableQuiz(enabled) {
   const startBtn = document.getElementById('startQuizBtn');
@@ -120,17 +132,18 @@ function enableQuiz(enabled) {
     startBtn.disabled = !enabled;
     startBtn.style.opacity = enabled ? '1' : '0.5';
     startBtn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+    startBtn.title = enabled ? '' : '로그인 후 이용 가능';
   }
 }
 
 // ============================================================
-// API 호출
+// 5. API 호출
 // ============================================================
 function callAPI(action, params = {}) {
   const formData = new URLSearchParams();
   formData.append('action', action);
   Object.keys(params).forEach(key => formData.append(key, params[key]));
-  
+
   return fetch(MEMBER_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -139,15 +152,14 @@ function callAPI(action, params = {}) {
 }
 
 // ============================================================
-// 로그인
+// 6. 로그인 (프롬프트 방식 - 모달 대비 간단함)
 // ============================================================
 function showLoginModal() {
-  // 간단한 프롬프트로 대체 (모달 대신)
-  const email = prompt('이메일을 입력하세요:');
+  const email = prompt('📧 이메일을 입력하세요:');
   if (!email) return;
-  const pin = prompt('비밀번호(PIN)를 입력하세요:');
+  const pin = prompt('🔑 비밀번호(PIN)를 입력하세요:');
   if (!pin) return;
-  
+
   callAPI('login', { email, pin })
     .then(res => {
       if (res.status === 'success') {
@@ -166,19 +178,19 @@ function showLoginModal() {
 }
 
 // ============================================================
-// 회원가입
+// 7. 회원가입 (프롬프트 방식)
 // ============================================================
 function showRegisterModal() {
-  const name = prompt('이름을 입력하세요:');
+  const name = prompt('📝 이름을 입력하세요:');
   if (!name) return;
-  const email = prompt('이메일을 입력하세요:');
+  const email = prompt('📧 이메일을 입력하세요:');
   if (!email) return;
-  const pin = prompt('비밀번호(PIN)를 입력하세요 (4자리 이상):');
+  const pin = prompt('🔑 비밀번호(PIN)를 입력하세요 (4자리 이상):');
   if (!pin || pin.length < 4) {
     alert('비밀번호는 4자리 이상이어야 합니다.');
     return;
   }
-  
+
   callAPI('register', { name, email, pin })
     .then(res => {
       if (res.status === 'success') {
@@ -194,7 +206,7 @@ function showRegisterModal() {
 }
 
 // ============================================================
-// 로그아웃
+// 8. 로그아웃
 // ============================================================
 function logout() {
   if (!confirm('로그아웃 하시겠습니까?')) return;
@@ -206,13 +218,23 @@ function logout() {
 }
 
 // ============================================================
-// 외부 호출용 (main.js에서 사용)
+// 9. main.js에서 사용할 공개 함수
 // ============================================================
 function isUserAuthorized() {
-  if (!currentUser) return false;
+  if (!currentUser) {
+    alert('⚠️ 로그인이 필요합니다.');
+    return false;
+  }
   if (currentUser.payment_status !== 'active') {
     alert('⚠️ 구독 상태가 활성화되지 않았습니다.');
     return false;
+  }
+  if (currentUser.expired_date) {
+    const expired = new Date(currentUser.expired_date);
+    if (expired < new Date()) {
+      alert('⚠️ 구독이 만료되었습니다.');
+      return false;
+    }
   }
   return true;
 }
@@ -222,7 +244,7 @@ function getCurrentUser() {
 }
 
 // ============================================================
-// 전역 노출
+// 10. 전역 노출
 // ============================================================
 window.initMemberSystem = initMemberSystem;
 window.isUserAuthorized = isUserAuthorized;
@@ -230,4 +252,4 @@ window.getCurrentUser = getCurrentUser;
 window.showLoginModal = showLoginModal;
 window.showRegisterModal = showRegisterModal;
 
-console.log('✅ 초간단 member.js 로드 완료!');
+console.log('✅ 최종 member.js 로드 완료!');
