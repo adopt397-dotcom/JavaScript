@@ -70,7 +70,7 @@ var ORIGINAL_API_URL = API_URL;
 var MEMBER_API_URL = API_URL;
 
 // ============================================================
-// 0250 - 회원관리 상수 (신규)
+// 0250 - 회원관리 상수
 // ============================================================
 var SESSION_KEY = 'sat_user_session';
 var CURRENT_USER = null;
@@ -127,7 +127,7 @@ function hideSplash() {
 }
 
 // ============================================================
-// 0450 - 로그인/회원가입 UI (신규)
+// 0450 - 로그인/회원가입 UI
 // ============================================================
 function showLoginScreen() {
   var loginHTML = `
@@ -343,7 +343,7 @@ function randomizeChoicesOnly(q) {
 }
 
 // ============================================================
-// 0550 - loadSubjects (신규)
+// 0550 - loadSubjects
 // ============================================================
 async function loadSubjects() {
   console.log("🔍 loadSubjects 시작");
@@ -384,7 +384,7 @@ async function loadSubjects() {
 }
 
 // ============================================================
-// 0555 - getAccessibleSubjects (신규)
+// 0555 - getAccessibleSubjects
 // ============================================================
 function getAccessibleSubjects() {
   if (!CURRENT_USER || !CURRENT_USER.access_subjects) {
@@ -402,7 +402,7 @@ function getAccessibleSubjects() {
 }
 
 // ============================================================
-// 0556 - checkAutoLogin (신규)
+// 0556 - checkAutoLogin
 // ============================================================
 function checkAutoLogin() {
   var session = localStorage.getItem(SESSION_KEY);
@@ -427,7 +427,7 @@ function checkAutoLogin() {
 }
 
 // ============================================================
-// 0557 - logout (신규)
+// 0557 - logout
 // ============================================================
 function logout() {
   if (confirm('로그아웃 하시겠습니까?')) {
@@ -1239,7 +1239,7 @@ function resumeProgress(saved) {
 }
 
 // ============================================================
-// 1350 - updateSetSelectorForSubject (신규)
+// 1350 - updateSetSelectorForSubject
 // ============================================================
 function updateSetSelectorForSubject(subject) {
   var setSelector = document.getElementById('setSelector');
@@ -1349,7 +1349,7 @@ function initialize() {
         localStorage.setItem(TOTAL_CACHE_KEY, String(TOTAL_QUESTIONS));
       }
 
-      // 원본: updateSetSelector (기존 함수) – 과목 선택이 없으면 기본 Set 목록 표시
+      // 원본: updateSetSelector
       updateSetSelector();
 
       updateSplash(60, 'Preparing data...');
