@@ -61,9 +61,8 @@ var LANG = {
 // ============================================================
 // 0200 - API URL 및 상수
 // ============================================================
-var API_URL = "https://script.google.com/macros/s/AKfycbw1rnZV3C8ALXouJFS6Xjy_1Bfo_Q1jAjyXzDYZetstfPEClDB9zVoL57ygtATIcbUa/exec";
+vvar API_URL = "https://script.google.com/macros/s/AKfycbw1rnZV3C8ALXouJFS6Xjy_1Bfo_Q1jAjyXzDYZetstfPEClDB9zVoL57ygtATIcbUa/exec";
 var ORIGINAL_API_URL = "https://script.google.com/macros/s/AKfycbw1rnZV3C8ALXouJFS6Xjy_1Bfo_Q1jAjyXzDYZetstfPEClDB9zVoL57ygtATIcbUa/exec";
-
 var STORAGE_KEY = 'quiz_progress_main';
 var TOTAL_CACHE_KEY = 'quiz_total_questions';
 var QUESTIONS_PER_SET = 120;
