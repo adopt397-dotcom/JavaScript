@@ -61,8 +61,9 @@ var LANG = {
 // ============================================================
 // 0200 - API URL 및 상수
 // ============================================================
-vvar API_URL = "https://script.google.com/macros/s/AKfycbw1rnZV3C8ALXouJFS6Xjy_1Bfo_Q1jAjyXzDYZetstfPEClDB9zVoL57ygtATIcbUa/exec";
-var ORIGINAL_API_URL = "https://script.google.com/macros/s/AKfycbw1rnZV3C8ALXouJFS6Xjy_1Bfo_Q1jAjyXzDYZetstfPEClDB9zVoL57ygtATIcbUa/exec";
+var API_URL = "https://script.google.com/macros/s/AKfycbwYnCi7myER0R4djAV7CLW9Y1aTa-mjFSk_y_8vcD_p8vN78Sr5JeUB0WEqJR0_OTuG/exec";
+var ORIGINAL_API_URL = "https://script.google.com/macros/s/AKfycbx-S88kC_Ii_MxbibHmmHQYK_ITc1U9jphAxJ-uV0NSBGMFUidA3ItBE0niKhUyW32oMA/exec";
+
 var STORAGE_KEY = 'quiz_progress_main';
 var TOTAL_CACHE_KEY = 'quiz_total_questions';
 var QUESTIONS_PER_SET = 120;
@@ -1366,9 +1367,6 @@ function resumeProgress(saved) {
 }
 
 function initialize() {
-   if (typeof initMemberSystem === 'function') {
-    initMemberSystem();
-  }
   DOM.setupSection = document.getElementById('setupSection');
   DOM.quizMain = document.getElementById('quizMain');
   DOM.quizContent = document.getElementById('quizContent');
@@ -1493,14 +1491,6 @@ function initialize() {
 // 1500 - startQuizWithNumber 함수
 // ============================================================
 async function startQuizWithNumber(uiStartNumber) {
-  // ★ 여기에 이 6줄을 추가하세요 ★
-  if (typeof isUserAuthorized === 'function' && !isUserAuthorized()) {
-    alert('로그인 또는 구독이 필요합니다.');
-    if (typeof showLoginModal === 'function') {
-      showLoginModal();
-    }
-    return;
-  }
   if (isNaN(uiStartNumber) || uiStartNumber < 1) uiStartNumber = 1;
   if (uiStartNumber > TOTAL_QUESTIONS) {
     console.log('🔄 Number ' + uiStartNumber + ' exceeds total ' + TOTAL_QUESTIONS + '. Looping back to 1.');
