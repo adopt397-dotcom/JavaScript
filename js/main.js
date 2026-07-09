@@ -1,5 +1,5 @@
 // ============================================================
-// LANG 객체 및 상수 정의
+// B001: LANG 객체 및 상수 정의
 // ============================================================
 var LANG = {
   enterNumber: "Enter Starting Number",
@@ -59,10 +59,10 @@ var LANG = {
 };
 
 // ============================================================
-// API URL (중복 제거, 하나로 통일)
+// B002: API URL 및 전역 변수
 // ============================================================
 var API_URL = "https://script.google.com/macros/s/AKfycbzJ_5tnUjWfYSGIMnzglrB-T8nwhLwKVKUs8Kzvxb8Oe8qhX8N9wEi_wf4m6RYcjQA6/exec";
-var ORIGINAL_API_URL = API_URL; // 이전 버전과의 호환성 유지
+var ORIGINAL_API_URL = API_URL;
 
 var STORAGE_KEY = 'quiz_progress_main';
 var TOTAL_CACHE_KEY = 'quiz_total_questions';
@@ -81,7 +81,7 @@ var chartInstances = {};
 var DOM = {};
 
 // ============================================================
-// Splash 화면 관련 함수
+// B003: Splash 화면 관련 함수
 // ============================================================
 function updateSplash(percent, text) {
   var bar = document.getElementById('splashBar');
@@ -104,13 +104,14 @@ function hideSplash() {
     overlay.style.opacity = '0';
     setTimeout(function() {
       overlay.style.display = 'none';
-      document.getElementById('mainContainer').style.display = 'block';
+      var mc = document.getElementById('mainContainer');
+      if (mc) mc.style.display = 'block';
     }, 500);
   }
 }
 
 // ============================================================
-// 유틸리티 함수
+// B004: 유틸리티 함수
 // ============================================================
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
@@ -187,7 +188,7 @@ function randomizeChoicesOnly(q) {
 }
 
 // ============================================================
-// 진행 표시 및 로딩 오버레이
+// B005: 진행 표시 및 로딩 오버레이
 // ============================================================
 function updateProgressDisplay() {
   var total = currentQuestions.length || 1;
@@ -214,7 +215,7 @@ function hideLoadingOverlay() {
 }
 
 // ============================================================
-// 진행 저장/로드/초기화 함수
+// B006: 진행 저장/로드/초기화 함수
 // ============================================================
 function saveProgress() {
   try {
@@ -264,7 +265,7 @@ function startAutoSave() {
 }
 
 // ============================================================
-// API 호출 함수
+// B007: API 호출 함수 (detectTotalQuestions, updateSetSelector, load50Questions)
 // ============================================================
 async function detectTotalQuestions() {
   localStorage.removeItem(TOTAL_CACHE_KEY);
@@ -493,7 +494,7 @@ async function load50Questions(uiStartNumber) {
 }
 
 // ============================================================
-// 퀴즈 네비게이션 함수
+// B008: 퀴즈 네비게이션 함수 (goNext, goPrev, skipQuestion, submitSubjective)
 // ============================================================
 function goNext() {
   if (currentIndex < currentQuestions.length - 1) {
@@ -547,6 +548,9 @@ function submitSubjective() {
   renderCurrentQuestion();
 }
 
+// ============================================================
+// B009: 결과 및 리뷰 함수 (getWrongSkippedUnansweredIndices, showResults, showWrongAnswersList, startWrongOnlyReview)
+// ============================================================
 function getWrongSkippedUnansweredIndices() {
   var result = [];
   for (var i = 0; i < currentQuestions.length; i++) {
@@ -687,7 +691,7 @@ function startWrongOnlyReview() {
 }
 
 // ============================================================
-// 타이머 함수
+// B010: 타이머 함수
 // ============================================================
 var timerSeconds = 134 * 60;
 var timerInterval = null;
@@ -772,7 +776,7 @@ function initTimer() {
 }
 
 // ============================================================
-// 렌더링 함수
+// B011: 렌더링 함수 (autoWrapLatex, renderSubjectiveQuestion, renderCurrentQuestion, showExplanation)
 // ============================================================
 function autoWrapLatex(text) {
   if (!text) return text;
@@ -1057,7 +1061,7 @@ function showExplanation() {
 }
 
 // ============================================================
-// 이벤트 및 초기화 함수
+// B012: 이벤트 및 초기화 함수 (attachKeyboardEvents, attachEvents, showProgressModal, resumeProgress, initialize)
 // ============================================================
 function attachKeyboardEvents() {
   document.addEventListener('keydown', function(event) {
@@ -1223,6 +1227,8 @@ function resumeProgress(saved) {
 }
 
 function initialize() {
+  console.log('🔧 initialize() started');
+  
   DOM.setupSection = document.getElementById('setupSection');
   DOM.quizMain = document.getElementById('quizMain');
   DOM.quizContent = document.getElementById('quizContent');
@@ -1263,12 +1269,18 @@ function initialize() {
 
   initTimer();
   
-  // ★★★★★ attachEvents를 여기서 호출 (setTimeout 바깥으로 이동) ★★★★★
+  // ★★★★★ attachEvents를 전역에 노출 (B014에서도 하지만 여기도 안전하게) ★★★★★
+  if (typeof window.attachEvents === 'undefined') {
+    window.attachEvents = attachEvents;
+  }
+  
+  // ★★★★★ attachEvents 호출 (setTimeout 바깥에서) ★★★★★
   attachEvents();
 
   updateSplash(10, 'Connecting to server...');
   
-  setTimeout(async function() {
+  // ★★★★★ setTimeout 제거하고 즉시 실행 (화면 멈춤 해결) ★★★★★
+  (async function() {
     try {
       await detectTotalQuestions();
       
@@ -1341,24 +1353,31 @@ function initialize() {
       }
       
       updateSplash(100, 'Ready!');
-      setTimeout(function() {
-        hideSplash();
-        DOM.setupSection.style.display = 'block';
-        DOM.quizMain.style.display = 'block';
-        
-        setTimeout(function() { DOM.startNumberInput.focus(); DOM.startNumberInput.select(); }, 150);
-        setTimeout(function() { DOM.startNumberInput.focus(); DOM.startNumberInput.select(); }, 400);
-        setTimeout(function() { DOM.startNumberInput.focus(); DOM.startNumberInput.select(); }, 700);
-        
-        console.log('✅ Initialization complete: ' + TOTAL_QUESTIONS + ' total questions');
-      }, 400);
+      
+      // ★★★★★ hideSplash 호출 (화면 표시) ★★★★★
+      hideSplash();
+      DOM.setupSection.style.display = 'block';
+      DOM.quizMain.style.display = 'block';
+      
+      setTimeout(function() { 
+        if (DOM.startNumberInput) {
+          DOM.startNumberInput.focus(); 
+          DOM.startNumberInput.select(); 
+        }
+      }, 150);
+      
+      console.log('✅ Initialization complete: ' + TOTAL_QUESTIONS + ' total questions');
+      
     } catch(e) {
       console.error('Initialization error:', e);
       showSplashError(e.message || 'Initialization failed');
     }
-  }, 300);
+  })();
 }
 
+// ============================================================
+// B013: startQuizWithNumber 함수
+// ============================================================
 async function startQuizWithNumber(uiStartNumber) {
   if (isNaN(uiStartNumber) || uiStartNumber < 1) uiStartNumber = 1;
   
@@ -1412,7 +1431,7 @@ async function startQuizWithNumber(uiStartNumber) {
 }
 
 // ============================================================
-// renderGraphic (통합 렌더러)
+// B014: renderGraphic (통합 렌더러) - 전체 포함
 // ============================================================
 function renderGraphic(jsonData) {
   if (!jsonData || jsonData.trim() == "") return "";
@@ -2813,7 +2832,7 @@ function renderGraphic(jsonData) {
 }
 
 // ============================================================
-// 내보내기 및 전역 노출
+// B015: 내보내기 및 전역 노출 (window + export)
 // ============================================================
 
 // 1. 전역(window) 노출
@@ -2833,7 +2852,7 @@ window.saveProgress = saveProgress;
 window.loadProgress = loadProgress;
 window.clearProgress = clearProgress;
 
-// ★★★★★ attachEvents를 전역에 노출 (이 부분이 오늘 오류 해결의 핵심) ★★★★★
+// ★★★★★ attachEvents를 전역에 노출 (가장 중요!) ★★★★★
 window.attachEvents = attachEvents;
 
 window.LANG = LANG;
