@@ -1,5 +1,5 @@
 // ============================================================
-// 0100 - LANG 객체 및 상수 정의
+// LANG 객체 및 상수 정의
 // ============================================================
 var LANG = {
   enterNumber: "Enter Starting Number",
@@ -59,20 +59,15 @@ var LANG = {
 };
 
 // ============================================================
-// 0200 - API URL 및 상수
+// API URL (중복 제거, 하나로 통일)
 // ============================================================
-// 1️⃣ ORIGINAL_API_URL (실제 사용)
-// ============================================================
-// ORIGINAL_API_URL (이전 URL로 복구)
-// ============================================================
-var ORIGINAL_API_URL = "https://script.google.com/macros/s/AKfycbzJ_5tnUjWfYSGIMnzglrB-T8nwhLwKVKUs8Kzvxb8Oe8qhX8N9wEi_wf4m6RYcjQA6/exec";
 var API_URL = "https://script.google.com/macros/s/AKfycbzJ_5tnUjWfYSGIMnzglrB-T8nwhLwKVKUs8Kzvxb8Oe8qhX8N9wEi_wf4m6RYcjQA6/exec";
+var ORIGINAL_API_URL = API_URL; // 이전 버전과의 호환성 유지
 
 var STORAGE_KEY = 'quiz_progress_main';
 var TOTAL_CACHE_KEY = 'quiz_total_questions';
 var QUESTIONS_PER_SET = 120;
 var TOTAL_QUESTIONS = 0;
-
 var masterQuestions = [];
 var currentQuestions = [];
 var userAnswers = [];
@@ -85,10 +80,8 @@ var autoSaveInterval = null;
 var chartInstances = {};
 var DOM = {};
 
-
-
 // ============================================================
-// 0400 - Splash 화면 관련 함수
+// Splash 화면 관련 함수
 // ============================================================
 function updateSplash(percent, text) {
   var bar = document.getElementById('splashBar');
@@ -117,7 +110,7 @@ function hideSplash() {
 }
 
 // ============================================================
-// 0500 - 유틸리티 함수
+// 유틸리티 함수
 // ============================================================
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
@@ -194,7 +187,7 @@ function randomizeChoicesOnly(q) {
 }
 
 // ============================================================
-// 0600 - 진행률 표시 및 오버레이 함수
+// 진행 표시 및 로딩 오버레이
 // ============================================================
 function updateProgressDisplay() {
   var total = currentQuestions.length || 1;
@@ -221,7 +214,7 @@ function hideLoadingOverlay() {
 }
 
 // ============================================================
-// 0700 - 진행 저장/로드/초기화 함수
+// 진행 저장/로드/초기화 함수
 // ============================================================
 function saveProgress() {
   try {
@@ -271,44 +264,54 @@ function startAutoSave() {
 }
 
 // ============================================================
-// 0800 - 전체 문제 수 감지 및 셋 선택기 업데이트
+// API 호출 함수
 // ============================================================
 async function detectTotalQuestions() {
   localStorage.removeItem(TOTAL_CACHE_KEY);
   console.log('Cache cleared, fetching fresh data...');
+  
   try {
     updateSplash(30, 'Checking total questions...');
     var url = ORIGINAL_API_URL + '?total=true&_=' + Date.now();
     console.log('📡 Requesting total (direct):', url);
+    
     var response = await fetch(url);
     console.log('📡 Response status:', response.status);
+    
     if (!response.ok) {
       throw new Error('HTTP ' + response.status);
     }
+    
     var text = await response.text();
     console.log('📡 Response text (first 200 chars):', text.substring(0, 200));
+    
     if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
       console.error('❌ Received HTML. Check Apps Script deployment.');
       throw new Error('HTML response - check Apps Script URL');
     }
+    
     var data = JSON.parse(text);
     console.log('📡 Total API response:', JSON.stringify(data));
+    
     var total = 0;
     if (data && typeof data === 'object') {
       if (typeof data.total === 'number') total = data.total;
       else if (typeof data.count === 'number') total = data.count;
       else if (typeof data.length === 'number') total = data.length;
     }
+    
     if (total > 0) {
       TOTAL_QUESTIONS = total;
       localStorage.setItem(TOTAL_CACHE_KEY, String(TOTAL_QUESTIONS));
       console.log('✅ Total questions: ' + TOTAL_QUESTIONS);
       return TOTAL_QUESTIONS;
     }
+    
     console.warn('⚠️ Could not detect total, using fallback: 360');
   } catch(e) {
     console.error('❌ Total API call failed:', e.message);
   }
+  
   TOTAL_QUESTIONS = 360;
   localStorage.setItem(TOTAL_CACHE_KEY, String(TOTAL_QUESTIONS));
   return TOTAL_QUESTIONS;
@@ -317,12 +320,15 @@ async function detectTotalQuestions() {
 function updateSetSelector() {
   var setSelector = document.getElementById('setSelector');
   if (!setSelector) return;
+  
   while (setSelector.options.length > 0) {
     setSelector.remove(0);
   }
+  
   var totalQuestions = TOTAL_QUESTIONS > 0 ? TOTAL_QUESTIONS : 360;
   var totalSets = Math.ceil(totalQuestions / QUESTIONS_PER_SET);
   console.log('📊 Total Sets: ' + totalSets + ' (Questions: ' + totalQuestions + ')');
+  
   for (var i = 1; i <= totalSets; i++) {
     var start = (i - 1) * QUESTIONS_PER_SET + 1;
     var end = Math.min(i * QUESTIONS_PER_SET, totalQuestions);
@@ -331,6 +337,7 @@ function updateSetSelector() {
     option.textContent = 'Set ' + i + ' (Questions ' + start + '-' + end + ')';
     setSelector.appendChild(option);
   }
+  
   var maxStartNumber = Math.max(1, totalQuestions - QUESTIONS_PER_SET + 1);
   if (DOM.maxNumberDisplay) {
     DOM.maxNumberDisplay.innerText = maxStartNumber.toLocaleString();
@@ -339,6 +346,7 @@ function updateSetSelector() {
     DOM.startNumberInput.placeholder = '1 ~ ' + maxStartNumber.toLocaleString();
     DOM.startNumberInput.max = maxStartNumber;
   }
+  
   if (setSelector.options.length > 0) {
     setSelector.value = '1';
   }
@@ -347,9 +355,6 @@ function updateSetSelector() {
   }
 }
 
-/// ============================================================
-// 0900 - load50Questions 함수 (GAS API 호출 및 데이터 파싱)
-// ============================================================
 async function load50Questions(uiStartNumber) {
   if (TOTAL_QUESTIONS === 0) await detectTotalQuestions();
   try {
@@ -375,7 +380,6 @@ async function load50Questions(uiStartNumber) {
     console.log('📡 Response type:', typeof data);
     console.log('📡 Is array?', Array.isArray(data));
     
-    // ★★★★★ 유연한 데이터 추출 (배열 + data.data 모두 지원) ★★★★★
     var questionsData = [];
     
     if (Array.isArray(data)) {
@@ -432,22 +436,14 @@ async function load50Questions(uiStartNumber) {
           parsed = { question: String(item), answer: '1' };
         }
         
-        // ★★★★★ raw 데이터 유지 ★★★★★
         var questionText = parsed.Q || parsed.question || parsed.q || parsed.문제 || parsed.text || 'Question ' + (uiStartNumber + idx);
         var passageText = parsed.passage || parsed.P || parsed.p || parsed.지문 || '';
         
-        // ★★★★★ choices 추출 (API 응답 구조에 맞게) ★★★★★
         var choices = {};
-        if (parsed.choices && typeof parsed.choices === 'object') {
-          // API 응답에 choices 객체가 있는 경우
-          choices = parsed.choices;
-        } else {
-          // 기존 방식 (선택지가 직접 키로 있는 경우)
-          choices['1'] = parsed['1'] || parsed.choice1 || '';
-          choices['2'] = parsed['2'] || parsed.choice2 || '';
-          choices['3'] = parsed['3'] || parsed.choice3 || '';
-          choices['4'] = parsed['4'] || parsed.choice4 || '';
-        }
+        choices['1'] = parsed['1'] || parsed.choice1 || 'Option A';
+        choices['2'] = parsed['2'] || parsed.choice2 || 'Option B';
+        choices['3'] = parsed['3'] || parsed.choice3 || 'Option C';
+        choices['4'] = parsed['4'] || parsed.choice4 || 'Option D';
         
         var finalAnswer = '1';
         if (parsed.A !== undefined && parsed.A !== null && parsed.A !== "") {
@@ -456,6 +452,8 @@ async function load50Questions(uiStartNumber) {
           finalAnswer = String(parsed.answer).trim();
         } else if (parsed.정답 !== undefined && parsed.정답 !== null && parsed.정답 !== "") {
           finalAnswer = String(parsed.정답).trim();
+        } else if (parsed.a !== undefined && parsed.a !== null && parsed.a !== "") {
+          finalAnswer = String(parsed.a).trim();
         }
         
         var originalNumber = parsed.N || parsed.originalNumber || parsed.n || (uiStartNumber + idx);
@@ -474,7 +472,6 @@ async function load50Questions(uiStartNumber) {
         
         if (idx === 0) {
           console.log('📝 First question mapped:', processed[0]);
-          console.log('📝 q.choices:', processed[0].choices);
         }
       } catch(e) {
         console.warn('⚠️ Parse error for item', idx, ':', e);
@@ -487,6 +484,7 @@ async function load50Questions(uiStartNumber) {
     }
     
     console.log('✅ Successfully parsed ' + processed.length + ' questions');
+    console.log('📝 First question preview:', processed[0]);
     return processed;
   } catch(err) {
     console.error('❌ Load failed:', err);
@@ -495,7 +493,7 @@ async function load50Questions(uiStartNumber) {
 }
 
 // ============================================================
-// 1000 - 퀴즈 네비게이션 함수 (goNext, goPrev, skipQuestion, submitSubjective)
+// 퀴즈 네비게이션 함수
 // ============================================================
 function goNext() {
   if (currentIndex < currentQuestions.length - 1) {
@@ -549,9 +547,6 @@ function submitSubjective() {
   renderCurrentQuestion();
 }
 
-// ============================================================
-// 1100 - 결과 및 리뷰 관련 함수
-// ============================================================
 function getWrongSkippedUnansweredIndices() {
   var result = [];
   for (var i = 0; i < currentQuestions.length; i++) {
@@ -638,8 +633,8 @@ function showWrongAnswersList() {
   wrongItems.forEach(function(item) {
     var statusText = item.isSkipped ? LANG.statusSkipped : (item.isUnanswered ? LANG.statusUnanswered : LANG.statusWrong);
     var statusColor = item.isSkipped ? '#f39c12' : (item.isUnanswered ? '#6c757d' : '#e74c3c');
-    var userAnswerDisplay = (item.ans === null || item.ans === undefined || item.ans === -1) ? '---' : String(item.ans);
-    var correctAnswerDisplay = (item.isSubjective) ? (item.q.A || item.q.answer || '---') : getAnswerLetter(item.q.answer);
+    var userAnswerDisplay = (item.ans === null || item.ans === undefined || item.ans === -1) ? '—' : String(item.ans);
+    var correctAnswerDisplay = (item.isSubjective) ? (item.q.A || item.q.answer || '—') : getAnswerLetter(item.q.answer);
     if (!item.isSubjective && !item.isSkipped && !item.isUnanswered) {
       userAnswerDisplay = getAnswerLetter(item.ans);
       correctAnswerDisplay = getAnswerLetter(item.q.answer);
@@ -692,7 +687,7 @@ function startWrongOnlyReview() {
 }
 
 // ============================================================
-// 1200 - 타이머 함수
+// 타이머 함수
 // ============================================================
 var timerSeconds = 134 * 60;
 var timerInterval = null;
@@ -703,8 +698,8 @@ function formatTimer(seconds) {
   var hrs = Math.floor(seconds / 3600);
   var mins = Math.floor((seconds % 3600) / 60);
   var secs = seconds % 60;
-  return String(hrs).padStart(2, '0') + ':' +
-         String(mins).padStart(2, '0') + ':' +
+  return String(hrs).padStart(2, '0') + ':' + 
+         String(mins).padStart(2, '0') + ':' + 
          String(secs).padStart(2, '0');
 }
 
@@ -776,177 +771,22 @@ function initTimer() {
   });
 }
 
-function renderCurrentQuestion() {
-  console.log('🔴 renderCurrentQuestion START');
-  if (!currentQuestions.length || currentIndex >= currentQuestions.length) {
-    DOM.questionContainer.innerHTML = '<div style="padding:40px;text-align:center;color:red;">Error: Cannot load question</div>';
-    return;
-  }
-  var q = currentQuestions[currentIndex];
-  if (!q) {
-    DOM.questionContainer.innerHTML = '<div style="padding:40px;text-align:center;color:red;">Error: Invalid question data</div>';
-    return;
-  }
-  console.log('🔍 Current question:', q);
-  console.log('🔍 q.question (raw LaTeX):', q.question);
-  console.log('🔍 q.choices:', q.choices);
-
-  var answered = userAnswers[currentIndex];
-  updateProgressDisplay();
-  var actualNumber = q.originalNumber || (currentStartNumber + currentIndex);
-  var headerText = LANG.qPrefix + ' ' + (currentIndex + 1) + ' ' + LANG.of + ' ' + currentQuestions.length + ' ' + LANG.originalPrefix + actualNumber + LANG.originalSuffix;
-  if (isReviewMode) {
-    headerText = LANG.reviewModeQuestionPrefix + ' ' + (currentIndex + 1) + ' ' + LANG.of + ' ' + currentQuestions.length + ' ' + LANG.originalPrefix + actualNumber + LANG.originalSuffix;
-  }
-  var hasChoices = hasRealChoices(q);
-  var isSubjective = !hasChoices;
-  var passageHtml = '';
-  var displayPassage = q.passage || '';
-  if (displayPassage && displayPassage.trim() !== '' && displayPassage.trim() !== 'No passage.') {
-    passageHtml = '<div style="background:#f8f9fa;padding:15px;border-radius:8px;margin:10px 0;border:1px solid #dee2e6;">' +
-      '<div style="white-space:pre-wrap;font-size:15px;line-height:1.7;">' +
-      escapeHtml(displayPassage) + '</div>' +
-      '</div>';
-  }
-  if (isSubjective) {
-    renderSubjectiveQuestion(q, answered, headerText, passageHtml);
-    return;
-  }
-  var validKeys = getValidChoiceKeys(q.choices);
-  var originalAnswerKey = String(q.answer);
-  var originalAnswerText = q.choices[originalAnswerKey] || '';
-  var actualAnswerKey = null;
-  for (var i = 0; i < validKeys.length; i++) {
-    var key = validKeys[i];
-    if (q.choices[key] === originalAnswerText) {
-      actualAnswerKey = key;
-      break;
-    }
-  }
-  var displayAnswer = actualAnswerKey !== null ? validKeys.indexOf(actualAnswerKey) + 1 : parseInt(originalAnswerKey);
-
-  // ★★★★★ 질문 텍스트 처리 (LaTeX 강제 변환) ★★★★★
-  var questionDisplay = q.question || 'No question text';
-  // 이미 \(...\) 형식이 아니고, 수식 패턴이 있으면 LaTeX로 감싸기
-  if (!questionDisplay.includes('\\(') && !questionDisplay.includes('$')) {
-    if (/frac|sqrt|sum|int|\^|_[a-zA-Z]/.test(questionDisplay)) {
-      questionDisplay = '\\(' + questionDisplay + '\\)';
-    }
-  }
-  console.log('🔍 questionDisplay after processing:', questionDisplay);
-
-  // ★★★ 중요: MathJax가 직접 렌더링하도록 raw LaTeX 유지 ★★★
-  var html = '<div class="question-card">' +
-    '<div class="q-num">' + headerText + '</div>' +
-    passageHtml +
-    renderGraphic(q.graphic) +
-    '<div class="question-text math-content">' + questionDisplay + '</div>' +  // ← 수정된 부분
-    '<div class="choices">';
-  for (var idx = 0; idx < validKeys.length; idx++) {
-    var key = validKeys[idx];
-    var choiceNum = parseInt(key);
-    var letter = getAnswerLetter(idx + 1);
-    var choiceText = autoWrapLatex(q.choices[key] || '');
-    if (!choiceText) continue;
-    var isSelected = (answered === choiceNum);
-    var isCorrectChoice = (choiceNum === displayAnswer);
-    var showCorrect = (answered !== null && answered !== undefined && answered !== -1);
-    var cls = 'choice';
-    if (showCorrect) {
-      cls += ' disabled';
-      if (isCorrectChoice) cls += ' correct';
-      if (isSelected && !isCorrectChoice) cls += ' incorrect';
-    }
-    html += '<div class="' + cls + '" data-choice="' + choiceNum + '">' +
-      '<span class="choice-letter">' + letter + '</span>' +
-      '<span class="math-content">' + choiceText + '</span>' +
-      '</div>';
-  }
-  html += '</div></div>';
-  DOM.questionContainer.innerHTML = html;
-  console.log('✅ Question rendered');
-  console.log('🔍 HTML content:', html.substring(0, 500));
-
-  // ★★★ MathJax로 LaTeX 렌더링 ★★★
-  if (window.MathJax && MathJax.typesetPromise) {
-    MathJax.typesetPromise([DOM.questionContainer])
-      .then(function() {
-        console.log('✅ MathJax rendering complete');
-      })
-      .catch(function(err) {
-        console.warn('⚠️ MathJax rendering error:', err);
-      });
-  } else {
-    console.warn('⚠️ MathJax not available. LaTeX will not render.');
-  }
-
-  var choiceEls = DOM.questionContainer.querySelectorAll('.choice:not(.disabled)');
-  choiceEls.forEach(function(el) {
-    el.addEventListener('click', function() {
-      var choice = parseInt(el.getAttribute('data-choice'));
-      if (isNaN(choice)) return;
-      userAnswers[currentIndex] = choice;
-      if (choice === displayAnswer) correctCount++;
-      saveProgress();
-      renderCurrentQuestion();
-      showExplanation();
-    });
-  });
-  if (answered !== null && answered !== undefined && answered !== -1) {
-    showExplanation();
-  } else {
-    DOM.explanationBox.classList.remove('show');
-  }
-  var isLastQuestion = (currentIndex >= currentQuestions.length - 1);
-  if (isLastQuestion) {
-    DOM.nextBtn.style.display = 'none';
-    DOM.submitBtn.style.display = 'inline-block';
-    DOM.submitBtn.innerHTML = 'SUBMIT (Enter)';
-    var isAnswered = (answered !== null && answered !== undefined && answered !== -1);
-    DOM.submitBtn.disabled = !isAnswered;
-    DOM.submitBtn.style.background = isAnswered ? '#27ae60' : '#95a5a6';
-    DOM.submitBtn.style.color = isAnswered ? 'white' : '#666';
-  } else {
-    DOM.nextBtn.style.display = 'inline-block';
-    DOM.nextBtn.innerHTML = 'NEXT (N)';
-    DOM.submitBtn.style.display = 'none';
-  }
-  DOM.prevBtn.disabled = (currentIndex === 0);
-} 
-
 // ============================================================
-// 1300 - 렌더링 함수 (renderSubjectiveQuestion, renderCurrentQuestion, showExplanation)
-// MathJax 직접 렌더링 + 선택지 자동 LaTeX 변환 + 질문 텍스트 강제 변환
+// 렌더링 함수
 // ============================================================
-
-// ============================================================
-// 1300 - 렌더링 함수 (방법2: \(...\) 그대로 사용)
-// ============================================================
-
-// ★★★★★ 자동 LaTeX 감싸기 함수 (선택지용) ★★★★★
 function autoWrapLatex(text) {
-    if (!text) return text;
-    if (text.includes('\\(') || text.includes('$')) return text;
-    
-    var mathPatterns = [
-        /[a-zA-Z]\^/, /sqrt/, /frac/, /sum/, /int/,
-        /_[a-zA-Z]/, /[a-zA-Z][0-9]/, /[0-9][a-zA-Z]/,
-        /\([^)]+\)/, /[=><]/, /[+-]\s*[a-zA-Z]/,
-        /[a-zA-Z]\s*[=><]/, /[0-9]+\s*[=><]/,
-        /c\^2/, /39\^2/
-    ];
-    
-    for (var i = 0; i < mathPatterns.length; i++) {
-        if (mathPatterns[i].test(text)) {
-            return '\\(' + text + '\\)';
-        }
+  if (!text) return text;
+  if (text.includes('\\(') || text.includes('$')) return text;
+  var mathPatterns = [
+    /[a-zA-Z]\^/, /sqrt/, /frac/, /sum/, /int/,
+    /[a-zA-Z]_/, /[0-9]^/, /[a-zA-Z][0-9]/
+  ];
+  for (var i = 0; i < mathPatterns.length; i++) {
+    if (mathPatterns[i].test(text)) {
+      return '\\(' + text + '\\)';
     }
-    
-    if (/[0-9+\-*/=<>]/.test(text) && /[a-zA-Z]/.test(text)) {
-        return '\\(' + text + '\\)';
-    }
-    
-    return text;
+  }
+  return text;
 }
 
 function renderSubjectiveQuestion(q, answered, headerText, passageHtml) {
@@ -963,15 +803,11 @@ function renderSubjectiveQuestion(q, answered, headerText, passageHtml) {
   } else {
     correctAnswerText = 'Answer not available';
   }
-  
-  // ★★★★★ 변환 없이 raw 그대로 사용 ★★★★★
-  var questionDisplay = q.question || 'No question text';
-  
   var html = '<div class="question-card">' +
     '<div class="q-num">' + headerText + '</div>' +
     passageHtml +
     renderGraphic(q.graphic) +
-    '<div class="question-text math-content">' + questionDisplay + '</div>';
+    '<div class="question-text math-content">' + escapeHtml(q.question) + '</div>';
   if (isAnswered) {
     var userAns = String(answered).trim();
     var isCorrect = (userAns === correctAnswerText) || (parseFloat(userAns) === parseFloat(correctAnswerText));
@@ -984,7 +820,7 @@ function renderSubjectiveQuestion(q, answered, headerText, passageHtml) {
       '</div>' +
       '<div class="subjective-explanation">' +
       '<strong>Explanation</strong>' +
-      '<p style="margin-top:8px;">' + escapeHtml(q.explanation || 'No explanation available.') + '</p>' +
+      '<p style="margin-top:8px;" class="math-content">' + escapeHtml(q.explanation || 'No explanation available.') + '</p>' +
       '</div>';
   } else {
     html += '<div class="subjective-input-group">' +
@@ -994,11 +830,11 @@ function renderSubjectiveQuestion(q, answered, headerText, passageHtml) {
   }
   html += '</div></div>';
   DOM.questionContainer.innerHTML = html;
-
+  
   if (window.MathJax && MathJax.typesetPromise) {
     MathJax.typesetPromise([DOM.questionContainer]).catch(console.warn);
   }
-
+  
   var isLastQuestion = (currentIndex >= currentQuestions.length - 1);
   if (isLastQuestion) {
     DOM.nextBtn.style.display = 'none';
@@ -1016,29 +852,33 @@ function renderSubjectiveQuestion(q, answered, headerText, passageHtml) {
   DOM.prevBtn.disabled = (currentIndex === 0);
 }
 
-// ★★★★★ renderCurrentQuestionNew ★★★★★
-function renderCurrentQuestionNew() {
-  console.log('🔴 renderCurrentQuestionNew START');
+function renderCurrentQuestion() {
+  console.log('🔴 renderCurrentQuestion START');
+  
   if (!currentQuestions.length || currentIndex >= currentQuestions.length) {
     DOM.questionContainer.innerHTML = '<div style="padding:40px;text-align:center;color:red;">Error: Cannot load question</div>';
     return;
   }
+  
   var q = currentQuestions[currentIndex];
   if (!q) {
     DOM.questionContainer.innerHTML = '<div style="padding:40px;text-align:center;color:red;">Error: Invalid question data</div>';
     return;
   }
+  
   console.log('🔍 Current question:', q);
-  console.log('🔍 q.question (raw LaTeX):', q.question);
+  console.log('🔍 q.question:', q.question);
   console.log('🔍 q.choices:', q.choices);
-
+  
   var answered = userAnswers[currentIndex];
   updateProgressDisplay();
+  
   var actualNumber = q.originalNumber || (currentStartNumber + currentIndex);
   var headerText = LANG.qPrefix + ' ' + (currentIndex + 1) + ' ' + LANG.of + ' ' + currentQuestions.length + ' ' + LANG.originalPrefix + actualNumber + LANG.originalSuffix;
   if (isReviewMode) {
     headerText = LANG.reviewModeQuestionPrefix + ' ' + (currentIndex + 1) + ' ' + LANG.of + ' ' + currentQuestions.length + ' ' + LANG.originalPrefix + actualNumber + LANG.originalSuffix;
   }
+  
   var hasChoices = hasRealChoices(q);
   var isSubjective = !hasChoices;
   var passageHtml = '';
@@ -1049,10 +889,12 @@ function renderCurrentQuestionNew() {
       escapeHtml(displayPassage) + '</div>' +
       '</div>';
   }
+  
   if (isSubjective) {
     renderSubjectiveQuestion(q, answered, headerText, passageHtml);
     return;
   }
+  
   var validKeys = getValidChoiceKeys(q.choices);
   var originalAnswerKey = String(q.answer);
   var originalAnswerText = q.choices[originalAnswerKey] || '';
@@ -1065,17 +907,16 @@ function renderCurrentQuestionNew() {
     }
   }
   var displayAnswer = actualAnswerKey !== null ? validKeys.indexOf(actualAnswerKey) + 1 : parseInt(originalAnswerKey);
-
-  // ★★★★★ \(...\) 그대로 사용 (변환 없음) ★★★★★
+  
   var questionDisplay = q.question || 'No question text';
-  console.log('🔍 questionDisplay (raw with \\(...\\)):', questionDisplay);
-
+  
   var html = '<div class="question-card">' +
     '<div class="q-num">' + headerText + '</div>' +
     passageHtml +
     renderGraphic(q.graphic) +
     '<div class="question-text math-content">' + questionDisplay + '</div>' +
     '<div class="choices">';
+  
   for (var idx = 0; idx < validKeys.length; idx++) {
     var key = validKeys[idx];
     var choiceNum = parseInt(key);
@@ -1097,9 +938,10 @@ function renderCurrentQuestionNew() {
       '</div>';
   }
   html += '</div></div>';
+  
   DOM.questionContainer.innerHTML = html;
   console.log('✅ Question rendered');
-
+  
   if (window.MathJax && MathJax.typesetPromise) {
     MathJax.typesetPromise([DOM.questionContainer])
       .then(function() {
@@ -1111,7 +953,7 @@ function renderCurrentQuestionNew() {
   } else {
     console.warn('⚠️ MathJax not available. LaTeX will not render.');
   }
-
+  
   var choiceEls = DOM.questionContainer.querySelectorAll('.choice:not(.disabled)');
   choiceEls.forEach(function(el) {
     el.addEventListener('click', function() {
@@ -1120,15 +962,17 @@ function renderCurrentQuestionNew() {
       userAnswers[currentIndex] = choice;
       if (choice === displayAnswer) correctCount++;
       saveProgress();
-      renderCurrentQuestionNew();
+      renderCurrentQuestion();
       showExplanation();
     });
   });
+  
   if (answered !== null && answered !== undefined && answered !== -1) {
     showExplanation();
   } else {
     DOM.explanationBox.classList.remove('show');
   }
+  
   var isLastQuestion = (currentIndex >= currentQuestions.length - 1);
   if (isLastQuestion) {
     DOM.nextBtn.style.display = 'none';
@@ -1146,7 +990,6 @@ function renderCurrentQuestionNew() {
   DOM.prevBtn.disabled = (currentIndex === 0);
 }
 
-// ★★★★★ showExplanation ★★★★★
 function showExplanation() {
   var q = currentQuestions[currentIndex];
   var ans = userAnswers[currentIndex];
@@ -1167,9 +1010,7 @@ function showExplanation() {
     var userAns = String(ans).trim();
     var isCorrect = (userAns === correctAns) || (parseFloat(userAns) === parseFloat(correctAns));
     var statusColor = isCorrect ? '#27ae60' : '#e74c3c';
-    
     var explanationText = q.explanation || LANG.noExplanation;
-    
     DOM.explanationText.innerHTML =
       '<div style="background:' + statusColor + ';color:white;padding:8px 16px;border-radius:6px;display:inline-block;font-weight:700;margin-bottom:15px;">' +
       'Answer: ' + escapeHtml(correctAns) +
@@ -1179,7 +1020,6 @@ function showExplanation() {
       '</div>' +
       '<p style="margin-top:12px;" class="math-content">' + escapeHtml(explanationText) + '</p>';
     DOM.explanationBox.classList.add('show');
-
     if (window.MathJax && MathJax.typesetPromise) {
       MathJax.typesetPromise([DOM.explanationText]).catch(console.warn);
     }
@@ -1201,9 +1041,7 @@ function showExplanation() {
   var correctAnswerLetter = getAnswerLetter(displayAnswerIndex);
   var isCorrect = (ans === displayAnswerIndex);
   var statusColor = isCorrect ? '#27ae60' : '#e74c3c';
-  
   var explanationText = q.explanation || LANG.noExplanation;
-  
   DOM.explanationText.innerHTML =
     '<div style="background:' + statusColor + ';color:white;padding:8px 16px;border-radius:6px;display:inline-block;font-weight:700;margin-bottom:15px;">' +
     'Answer: ' + correctAnswerLetter +
@@ -1213,18 +1051,13 @@ function showExplanation() {
     '</div>' +
     '<p style="margin-top:12px;" class="math-content">' + escapeHtml(explanationText) + '</p>';
   DOM.explanationBox.classList.add('show');
-
   if (window.MathJax && MathJax.typesetPromise) {
     MathJax.typesetPromise([DOM.explanationText]).catch(console.warn);
   }
 }
 
-// ★★★★★ 기존 함수 덮어쓰기 ★★★★★
-renderCurrentQuestion = renderCurrentQuestionNew;
-
-
 // ============================================================
-// 1400 - 이벤트 및 초기화 함수 (attachKeyboardEvents, attachEvents, showProgressModal, resumeProgress, initialize)
+// 이벤트 및 초기화 함수
 // ============================================================
 function attachKeyboardEvents() {
   document.addEventListener('keydown', function(event) {
@@ -1427,24 +1260,37 @@ function initialize() {
   if (!DOM.progressArea) {
     DOM.progressArea = document.getElementById('progressArea');
   }
+
   initTimer();
+  
+  // ★★★★★ attachEvents를 여기서 호출 (setTimeout 바깥으로 이동) ★★★★★
+  attachEvents();
+
   updateSplash(10, 'Connecting to server...');
+  
   setTimeout(async function() {
     try {
       await detectTotalQuestions();
+      
       if (TOTAL_QUESTIONS === 0) {
         TOTAL_QUESTIONS = 720;
         localStorage.setItem(TOTAL_CACHE_KEY, String(TOTAL_QUESTIONS));
       }
+      
       updateSetSelector();
+      
       updateSplash(60, 'Preparing data...');
+      
       var maxStartNumber = TOTAL_QUESTIONS;
       console.log('📊 Total questions: ' + TOTAL_QUESTIONS);
+      
       if (DOM.maxNumberSpan) DOM.maxNumberSpan.style.display = 'none';
       if (DOM.maxNumberDisplay) DOM.maxNumberDisplay.style.display = 'none';
+      
       DOM.startNumberInput.placeholder = '1-' + TOTAL_QUESTIONS;
       DOM.startNumberInput.max = TOTAL_QUESTIONS;
       DOM.startNumberInput.min = 1;
+      
       if (DOM.setSelector) {
         DOM.setSelector.addEventListener('change', function() {
           var setNum = parseInt(this.value);
@@ -1459,6 +1305,7 @@ function initialize() {
           DOM.startNumberInput.value = '';
         }
       }
+      
       var saved = loadProgress();
       if (saved && saved.currentQuestions && saved.currentQuestions.length > 0) {
         var answered = saved.userAnswers.filter(function(a) { return a !== null && a !== -1; }).length;
@@ -1492,15 +1339,17 @@ function initialize() {
           '<small>Start a new lesson</small>' +
           '</div>';
       }
-      attachEvents();
+      
       updateSplash(100, 'Ready!');
       setTimeout(function() {
         hideSplash();
         DOM.setupSection.style.display = 'block';
         DOM.quizMain.style.display = 'block';
+        
         setTimeout(function() { DOM.startNumberInput.focus(); DOM.startNumberInput.select(); }, 150);
         setTimeout(function() { DOM.startNumberInput.focus(); DOM.startNumberInput.select(); }, 400);
         setTimeout(function() { DOM.startNumberInput.focus(); DOM.startNumberInput.select(); }, 700);
+        
         console.log('✅ Initialization complete: ' + TOTAL_QUESTIONS + ' total questions');
       }, 400);
     } catch(e) {
@@ -1510,22 +1359,24 @@ function initialize() {
   }, 300);
 }
 
-// ============================================================
-// 1500 - startQuizWithNumber 함수
-// ============================================================
 async function startQuizWithNumber(uiStartNumber) {
   if (isNaN(uiStartNumber) || uiStartNumber < 1) uiStartNumber = 1;
+  
   if (uiStartNumber > TOTAL_QUESTIONS) {
     console.log('🔄 Number ' + uiStartNumber + ' exceeds total ' + TOTAL_QUESTIONS + '. Looping back to 1.');
     uiStartNumber = 1;
   }
+  
   var setNumber = Math.ceil(uiStartNumber / QUESTIONS_PER_SET);
   var setStart = (setNumber - 1) * QUESTIONS_PER_SET + 1;
+  
   var startNum = uiStartNumber;
   if (uiStartNumber < setStart || uiStartNumber > Math.min(setNumber * QUESTIONS_PER_SET, TOTAL_QUESTIONS)) {
     startNum = setStart;
   }
+  
   currentStartNumber = startNum;
+  
   var overlay = showLoadingOverlay('Loading ' + QUESTIONS_PER_SET + ' questions from ' + startNum + '...');
   try {
     var questions = await load50Questions(startNum);
@@ -1540,15 +1391,19 @@ async function startQuizWithNumber(uiStartNumber) {
     hideLoadingOverlay();
     DOM.setupSection.style.display = 'none';
     DOM.quizMain.style.display = 'block';
+    
     if (DOM.quizContent) {
       DOM.quizContent.style.display = 'block';
     }
     if (DOM.progressArea) {
       DOM.progressArea.style.display = 'flex';
     }
+    
     renderCurrentQuestion();
+    
     resetTimer();
     startTimer();
+    
   } catch(err) {
     hideLoadingOverlay();
     alert(LANG.loadError + ' ' + err.message);
@@ -1557,38 +1412,42 @@ async function startQuizWithNumber(uiStartNumber) {
 }
 
 // ============================================================
-// 1600 - renderGraphic 함수 (통합 그래픽 렌더러)
+// renderGraphic (통합 렌더러)
 // ============================================================
 function renderGraphic(jsonData) {
   if (!jsonData || jsonData.trim() == "") return "";
+  
   var data = jsonData.trim();
   if (data.startsWith("\"") && data.endsWith("\"")) data = data.slice(1, -1);
-  data = data.replace(/\\\"/g, '"').replace(/\\\\/g, '\\');
+  data = data.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  
   var parsedData = null;
   try {
     parsedData = JSON.parse(data);
   } catch(e) {
     return '<div style="padding:10px;color:#999;text-align:center;">📊 Invalid JSON</div>';
   }
+  
   if (!parsedData || typeof parsedData !== 'object') {
     return '<div style="padding:10px;color:#999;text-align:center;">📊 No data</div>';
   }
+  
   var colors = ['#3498db', '#e74c3c', '#27ae60', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#2c3e50', '#7f8c8d', '#16a085', '#d35400', '#c0392b'];
   var chartId = 'chart_' + Math.random().toString(36).substr(2, 9);
   var html = '<div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;"><canvas id="' + chartId + '" style="max-height:400px;width:100%;"></canvas></div>';
-
-  // 1601 - TABLE
+  
+  // TABLE
   if (parsedData.type === 'table' && parsedData.headers && parsedData.rows) {
     var h = '<div style="margin:15px 0;overflow-x:auto;background:white;border-radius:8px;border:1px solid #ddd;"><table style="width:100%;border-collapse:collapse;text-align:center;font-size:14px;">';
     h += '<thead><tr style="background:#3498db;color:white;">';
-    parsedData.headers.forEach(function(hd) {
-      h += '<th style="padding:10px 14px;border:1px solid #2980b9;font-weight:bold;">' + escapeHtml(hd) + '</th>';
+    parsedData.headers.forEach(function(hd) { 
+      h += '<th style="padding:10px 14px;border:1px solid #2980b9;font-weight:bold;">' + escapeHtml(hd) + '</th>'; 
     });
     h += '</tr></thead><tbody>';
     parsedData.rows.forEach(function(row, ri) {
       h += '<tr style="background:' + (ri%2===0?'#fff':'#f8f9fa') + ';">';
-      row.forEach(function(cell) {
-        h += '<td style="padding:8px 14px;border:1px solid #ddd;">' + escapeHtml(cell) + '</td>';
+      row.forEach(function(cell) { 
+        h += '<td style="padding:8px 14px;border:1px solid #ddd;">' + escapeHtml(cell) + '</td>'; 
       });
       h += '</tr>';
     });
@@ -1597,10 +1456,11 @@ function renderGraphic(jsonData) {
     h += '</div>';
     return h;
   }
-
-  // 1602 - BAR
+  
+  // BAR
   else if (parsedData.type === 'bar') {
     console.log("✅ BAR rendering started");
+    
     var labels = [];
     var datasets = [];
     var chartTitle = parsedData.title || 'Bar Chart';
@@ -1608,11 +1468,13 @@ function renderGraphic(jsonData) {
     var yLabel = parsedData.yAxis?.label || '';
     var yMin = parsedData.yAxis?.min !== undefined ? parsedData.yAxis.min : 0;
     var yMax = parsedData.yAxis?.max !== undefined ? parsedData.yAxis.max : undefined;
+    
     if (parsedData.labels) {
       labels = parsedData.labels;
     } else if (parsedData.xAxis?.categories) {
       labels = parsedData.xAxis.categories;
     }
+    
     if (parsedData.series && Array.isArray(parsedData.series)) {
       datasets = parsedData.series.map(function(s, i) {
         var color = colors[i % colors.length];
@@ -1634,11 +1496,14 @@ function renderGraphic(jsonData) {
         borderWidth: 2
       }];
     }
+    
     console.log("📊 labels:", labels);
     console.log("📊 datasets:", datasets);
+    
     if (datasets.length === 0 || datasets.every(function(d) { return d.data.length === 0; })) {
       return '<div style="padding:10px;color:#999;text-align:center;">📊 No data for bar chart</div>';
     }
+    
     function renderBarChart(attempt) {
       attempt = attempt || 0;
       var ctx = document.getElementById(chartId);
@@ -1652,10 +1517,12 @@ function renderGraphic(jsonData) {
           return;
         }
       }
+      
       if (window._chartInstances && window._chartInstances[chartId]) {
         window._chartInstances[chartId].destroy();
       }
       if (!window._chartInstances) window._chartInstances = {};
+      
       var cc = {
         type: 'bar',
         data: { labels: labels, datasets: datasets },
@@ -1668,16 +1535,17 @@ function renderGraphic(jsonData) {
           },
           scales: {
             x: { title: { display: true, text: xLabel }, grid: { color: '#e0e0e0' } },
-            y: {
-              beginAtZero: true,
-              title: { display: true, text: yLabel },
-              grid: { color: '#e0e0e0' },
-              min: yMin,
-              max: yMax
+            y: { 
+              beginAtZero: true, 
+              title: { display: true, text: yLabel }, 
+              grid: { color: '#e0e0e0' }, 
+              min: yMin, 
+              max: yMax 
             }
           }
         }
       };
+      
       var canvas = document.getElementById(chartId);
       if (canvas && cc) {
         canvas.parentElement.style.height = '400px';
@@ -1687,11 +1555,12 @@ function renderGraphic(jsonData) {
         console.error("❌ Failed to render bar chart");
       }
     }
+    
     setTimeout(function() { renderBarChart(); }, 100);
     return html;
   }
-
-  // 1603 - PIE
+  
+  // PIE
   else if (parsedData.type === 'pie' && parsedData.labels && parsedData.values) {
     setTimeout(function() {
       var ctx = document.getElementById(chartId);
@@ -1700,6 +1569,7 @@ function renderGraphic(jsonData) {
         window._chartInstances[chartId].destroy();
       }
       if (!window._chartInstances) window._chartInstances = {};
+      
       var cc = {
         type: 'pie',
         data: {
@@ -1718,6 +1588,7 @@ function renderGraphic(jsonData) {
           }
         }
       };
+      
       var canvas = document.getElementById(chartId);
       if (canvas && cc) {
         canvas.parentElement.style.height = '400px';
@@ -1726,8 +1597,8 @@ function renderGraphic(jsonData) {
     }, 100);
     return html;
   }
-
-  // 1604 - LINE
+  
+  // LINE
   else if (parsedData.type === 'line' && parsedData.series) {
     setTimeout(function() {
       var ctx = document.getElementById(chartId);
@@ -1736,6 +1607,7 @@ function renderGraphic(jsonData) {
         window._chartInstances[chartId].destroy();
       }
       if (!window._chartInstances) window._chartInstances = {};
+      
       var ds = parsedData.series.map(function(s, i) {
         var points = [];
         if (Array.isArray(s.points)) {
@@ -1761,6 +1633,7 @@ function renderGraphic(jsonData) {
           fill: s.fill || false
         };
       });
+      
       var cc = {
         type: 'scatter',
         data: { datasets: ds },
@@ -1777,6 +1650,7 @@ function renderGraphic(jsonData) {
           }
         }
       };
+      
       var canvas = document.getElementById(chartId);
       if (canvas && cc) {
         canvas.parentElement.style.height = '400px';
@@ -1785,10 +1659,11 @@ function renderGraphic(jsonData) {
     }, 100);
     return html;
   }
-
-  // 1605 - SCATTER
+  
+  // SCATTER
   else if (parsedData.type === 'scatter') {
     console.log("✅ SCATTER rendering started");
+    
     setTimeout(function() {
       var ctx = document.getElementById(chartId);
       if (!ctx) {
@@ -1799,7 +1674,9 @@ function renderGraphic(jsonData) {
         window._chartInstances[chartId].destroy();
       }
       if (!window._chartInstances) window._chartInstances = {};
+      
       var datasets = [];
+      
       if (parsedData.series && Array.isArray(parsedData.series)) {
         parsedData.series.forEach(function(ser, i) {
           var color = colors[i % colors.length];
@@ -1822,10 +1699,12 @@ function renderGraphic(jsonData) {
           pointHoverRadius: 7
         });
       }
+      
       if (datasets.length === 0) {
         console.warn("⚠️ No data");
         return;
       }
+      
       var cc = {
         type: 'scatter',
         data: { datasets: datasets },
@@ -1842,6 +1721,7 @@ function renderGraphic(jsonData) {
           }
         }
       };
+      
       var canvas = document.getElementById(chartId);
       if (canvas && cc) {
         canvas.parentElement.style.height = '400px';
@@ -1851,8 +1731,8 @@ function renderGraphic(jsonData) {
     }, 100);
     return html;
   }
-
-  // 1606 - RADAR
+  
+  // RADAR
   else if (parsedData.type === 'radar' && parsedData.labels && parsedData.datasets) {
     setTimeout(function() {
       var ctx = document.getElementById(chartId);
@@ -1861,6 +1741,7 @@ function renderGraphic(jsonData) {
         window._chartInstances[chartId].destroy();
       }
       if (!window._chartInstances) window._chartInstances = {};
+      
       var ds = parsedData.datasets.map(function(d, i) {
         var values = d.values || [];
         if (typeof values === 'string') {
@@ -1875,6 +1756,7 @@ function renderGraphic(jsonData) {
           pointRadius: 4
         };
       });
+      
       var cc = {
         type: 'radar',
         data: { labels: parsedData.labels, datasets: ds },
@@ -1889,6 +1771,7 @@ function renderGraphic(jsonData) {
           }
         }
       };
+      
       var canvas = document.getElementById(chartId);
       if (canvas && cc) {
         canvas.parentElement.style.height = '400px';
@@ -1897,8 +1780,8 @@ function renderGraphic(jsonData) {
     }, 100);
     return html;
   }
-
-  // 1607 - SCATTER-ONLY
+  
+  // SCATTER-ONLY
   else if (parsedData.type === 'scatter-only' && parsedData.points) {
     setTimeout(function() {
       var ctx = document.getElementById(chartId);
@@ -1907,13 +1790,16 @@ function renderGraphic(jsonData) {
         window._chartInstances[chartId].destroy();
       }
       if (!window._chartInstances) window._chartInstances = {};
+      
       var dataPoints = parsedData.points.map(function(p) {
         return { x: p.x, y: p.y };
       });
+      
       var minX = parsedData.xAxis?.min ?? 0;
       var maxX = parsedData.xAxis?.max ?? 10;
       var minY = parsedData.yAxis?.min ?? -10;
       var maxY = parsedData.yAxis?.max ?? 10;
+      
       var cc = {
         type: 'scatter',
         data: {
@@ -1949,6 +1835,7 @@ function renderGraphic(jsonData) {
           }
         }
       };
+      
       var canvas = document.getElementById(chartId);
       if (canvas && cc) {
         canvas.parentElement.style.height = '400px';
@@ -1957,11 +1844,12 @@ function renderGraphic(jsonData) {
     }, 100);
     return html;
   }
-
-  // 1608 - STACKED-BAR
+  
+  // STACKED-BAR
   else if (parsedData.type === 'stacked-bar' && parsedData.labels && parsedData.datasets) {
     var stackedChartId = 'chart_' + Math.random().toString(36).substr(2, 9);
     var stackedHtml = '<div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;"><canvas id="' + stackedChartId + '" style="max-height:400px;width:100%;"></canvas></div>';
+    
     setTimeout(function() {
       var ctx = document.getElementById(stackedChartId);
       if (!ctx) return;
@@ -1969,6 +1857,7 @@ function renderGraphic(jsonData) {
         window._chartInstances[stackedChartId].destroy();
       }
       if (!window._chartInstances) window._chartInstances = {};
+      
       var datasets = parsedData.datasets.map(function(ds, i) {
         var color = colors[i % colors.length];
         return {
@@ -1979,6 +1868,7 @@ function renderGraphic(jsonData) {
           borderWidth: 1
         };
       });
+      
       var cc = {
         type: 'bar',
         data: {
@@ -1998,6 +1888,7 @@ function renderGraphic(jsonData) {
           }
         }
       };
+      
       var canvas = document.getElementById(stackedChartId);
       if (canvas && cc) {
         canvas.parentElement.style.height = '400px';
@@ -2006,11 +1897,12 @@ function renderGraphic(jsonData) {
     }, 100);
     return stackedHtml;
   }
-
-  // 1609 - COMPARE
+  
+  // COMPARE
   else if (parsedData.type === 'compare' && parsedData.graphs) {
     var compareChartId = 'chart_' + Math.random().toString(36).substr(2, 9);
     var compareHtml = '<div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;"><canvas id="' + compareChartId + '" style="max-height:400px;width:100%;"></canvas></div>';
+    
     setTimeout(function() {
       var ctx = document.getElementById(compareChartId);
       if (!ctx) return;
@@ -2018,6 +1910,7 @@ function renderGraphic(jsonData) {
         window._chartInstances[compareChartId].destroy();
       }
       if (!window._chartInstances) window._chartInstances = {};
+      
       var allPoints = [];
       parsedData.graphs.forEach(function(g) {
         if (g.points) {
@@ -2026,6 +1919,7 @@ function renderGraphic(jsonData) {
           });
         }
       });
+      
       var minX = Infinity, maxX = -Infinity;
       var minY = Infinity, maxY = -Infinity;
       parsedData.graphs.forEach(function(g) {
@@ -2040,10 +1934,12 @@ function renderGraphic(jsonData) {
           });
         }
       });
+      
       if (minX === Infinity) { minX = 0; maxX = 10; }
       if (minY === Infinity) { minY = 0; maxY = 10; }
       var paddingX = (maxX - minX) * 0.1 || 1;
       var paddingY = (maxY - minY) * 0.1 || 1;
+      
       var datasets = parsedData.graphs.map(function(g, i) {
         var color = colors[i % colors.length];
         var data = [];
@@ -2064,6 +1960,7 @@ function renderGraphic(jsonData) {
           fill: false
         };
       });
+      
       var cc = {
         type: 'scatter',
         data: { datasets: datasets },
@@ -2075,7 +1972,7 @@ function renderGraphic(jsonData) {
             legend: { position: 'bottom' }
           },
           scales: {
-            x: {
+            x: { 
               type: 'linear',
               min: minX - paddingX,
               max: maxX + paddingX,
@@ -2091,6 +1988,7 @@ function renderGraphic(jsonData) {
           }
         }
       };
+      
       var canvas = document.getElementById(compareChartId);
       if (canvas && cc) {
         canvas.parentElement.style.height = '400px';
@@ -2099,16 +1997,18 @@ function renderGraphic(jsonData) {
     }, 100);
     return compareHtml;
   }
-
-  // 1610 - FUNCTION (Math.js + Canvas)
+  
+  // FUNCTION (Math.js + Canvas)
   else if (parsedData.type === 'function' && parsedData.equation) {
     var funcCanvasId = 'chart_' + Math.random().toString(36).substr(2, 9);
     var funcHtml = '<div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;position:relative;">' +
       '<canvas id="' + funcCanvasId + '" style="width:100%;height:400px;display:block;border-radius:4px;"></canvas>' +
       '</div>';
+    
     setTimeout(function() {
       var canvas = document.getElementById(funcCanvasId);
       if (!canvas) return;
+      
       var rect = canvas.parentElement.getBoundingClientRect();
       var dpr = window.devicePixelRatio || 1;
       var w = canvas.parentElement.clientWidth || 600;
@@ -2117,8 +2017,10 @@ function renderGraphic(jsonData) {
       canvas.height = h * dpr;
       canvas.style.width = w + 'px';
       canvas.style.height = h + 'px';
+      
       var ctx = canvas.getContext('2d');
       ctx.scale(dpr, dpr);
+      
       var equation = parsedData.equation.replace(/y\s*=\s*/, '');
       var xMin = parsedData.xAxis?.min !== undefined ? parsedData.xAxis.min : -10;
       var xMax = parsedData.xAxis?.max !== undefined ? parsedData.xAxis.max : 10;
@@ -2127,14 +2029,17 @@ function renderGraphic(jsonData) {
       var samples = 1000;
       var color = parsedData.color || '#e74c3c';
       var lineWidth = parsedData.lineWidth || 3;
+      
       var padding = 40;
       var graphW = w - padding * 2;
       var graphH = h - padding * 2;
+      
       function worldToScreen(wx, wy) {
         var sx = padding + ((wx - xMin) / (xMax - xMin)) * graphW;
         var sy = padding + graphH - ((wy - yMin) / (yMax - yMin)) * graphH;
         return { x: sx, y: sy };
       }
+      
       function evaluate(expr, x) {
         try {
           var node = math.parse(expr);
@@ -2144,8 +2049,10 @@ function renderGraphic(jsonData) {
           return NaN;
         }
       }
+      
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, w, h);
+      
       ctx.strokeStyle = '#f0f0f0';
       ctx.lineWidth = 1;
       for (var x = Math.ceil(xMin); x <= Math.floor(xMax); x++) {
@@ -2163,6 +2070,7 @@ function renderGraphic(jsonData) {
         ctx.lineTo(padding + graphW, pos.y);
         ctx.stroke();
       }
+      
       ctx.strokeStyle = '#333';
       ctx.lineWidth = 2;
       var origin = worldToScreen(0, 0);
@@ -2178,6 +2086,7 @@ function renderGraphic(jsonData) {
         ctx.lineTo(padding + graphW, origin.y);
         ctx.stroke();
       }
+      
       ctx.fillStyle = '#333';
       if (origin.x >= padding && origin.x <= padding + graphW) {
         ctx.beginPath();
@@ -2193,6 +2102,7 @@ function renderGraphic(jsonData) {
         ctx.lineTo(padding + graphW - 8, origin.y + 6);
         ctx.fill();
       }
+      
       ctx.fillStyle = '#555';
       ctx.font = '12px sans-serif';
       ctx.textAlign = 'center';
@@ -2201,6 +2111,7 @@ function renderGraphic(jsonData) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
       ctx.fillText(parsedData.yAxis?.label || 'y', 12, padding);
+      
       var points = [];
       var step = (xMax - xMin) / samples;
       for (var xVal = xMin; xVal <= xMax; xVal += step) {
@@ -2211,10 +2122,12 @@ function renderGraphic(jsonData) {
           points.push({ x: xVal, y: NaN });
         }
       }
+      
       ctx.strokeStyle = color;
       ctx.lineWidth = lineWidth;
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
+      
       var i = 0;
       while (i < points.length) {
         while (i < points.length && isNaN(points[i].y)) i++;
@@ -2232,6 +2145,7 @@ function renderGraphic(jsonData) {
           ctx.stroke();
         }
       }
+      
       if (parsedData.points) {
         parsedData.points.forEach(function(pt) {
           var screen = worldToScreen(pt.x, pt.y);
@@ -2251,6 +2165,7 @@ function renderGraphic(jsonData) {
           }
         });
       }
+      
       if (parsedData.showEquation !== false) {
         ctx.fillStyle = color;
         ctx.font = 'bold 14px sans-serif';
@@ -2261,23 +2176,27 @@ function renderGraphic(jsonData) {
           ctx.fillText('y = ' + equation, padding + 10, padding + 20);
         }
       }
+      
     }, 100);
     return funcHtml;
   }
-
-  // 1611 - COORDINATE-PLANE
+  
+  // COORDINATE-PLANE
   else if (parsedData.type === 'coordinate-plane') {
     var coordCanvasId = 'coord_' + Math.random().toString(36).substr(2, 9);
     var coordHtml = '<div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;position:relative;">' +
       '<canvas id="' + coordCanvasId + '" style="width:100%;height:400px;display:block;border-radius:4px;"></canvas>' +
       '</div>';
+    
     setTimeout(function() {
       console.log("✅ coordinate-plane version 2026 - full support");
+      
       var canvas = document.getElementById(coordCanvasId);
       if (!canvas) {
         console.error("❌ Canvas not found!");
         return;
       }
+      
       var rect = canvas.parentElement.getBoundingClientRect();
       var dpr = window.devicePixelRatio || 1;
       var w = canvas.parentElement.clientWidth || 600;
@@ -2286,22 +2205,28 @@ function renderGraphic(jsonData) {
       canvas.height = h * dpr;
       canvas.style.width = w + 'px';
       canvas.style.height = h + 'px';
+      
       var ctx = canvas.getContext('2d');
       ctx.scale(dpr, dpr);
+      
       var xMin = parsedData.xAxis?.min !== undefined ? parsedData.xAxis.min : -10;
       var xMax = parsedData.xAxis?.max !== undefined ? parsedData.xAxis.max : 10;
       var yMin = parsedData.yAxis?.min !== undefined ? parsedData.yAxis.min : -10;
       var yMax = parsedData.yAxis?.max !== undefined ? parsedData.yAxis.max : 10;
+      
       var padding = 40;
       var graphW = w - padding * 2;
       var graphH = h - padding * 2;
+      
       function toScreen(px, py) {
         var sx = padding + ((px - xMin) / (xMax - xMin)) * graphW;
         var sy = padding + graphH - ((py - yMin) / (yMax - yMin)) * graphH;
         return { x: sx, y: sy };
       }
+      
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, w, h);
+      
       if (parsedData.grid !== false) {
         ctx.strokeStyle = '#f0f0f0';
         ctx.lineWidth = 1;
@@ -2324,6 +2249,7 @@ function renderGraphic(jsonData) {
           ctx.stroke();
         }
       }
+      
       ctx.strokeStyle = '#333';
       ctx.lineWidth = 2;
       var origin = toScreen(0, 0);
@@ -2339,6 +2265,7 @@ function renderGraphic(jsonData) {
         ctx.lineTo(padding + graphW, origin.y);
         ctx.stroke();
       }
+      
       ctx.fillStyle = '#333';
       if (origin.x >= padding && origin.x <= padding + graphW) {
         ctx.beginPath();
@@ -2354,6 +2281,7 @@ function renderGraphic(jsonData) {
         ctx.lineTo(padding + graphW - 8, origin.y + 6);
         ctx.fill();
       }
+      
       ctx.fillStyle = '#555';
       ctx.font = '12px sans-serif';
       ctx.textAlign = 'center';
@@ -2362,12 +2290,15 @@ function renderGraphic(jsonData) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
       ctx.fillText(parsedData.yAxis?.label || 'y', 12, padding);
+      
       var xTick = parsedData.xAxis?.tick || 1;
       var yTick = parsedData.yAxis?.tick || 1;
+      
       ctx.fillStyle = '#555';
       ctx.font = '11px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
+      
       for (var x = Math.ceil(xMin / xTick) * xTick; x <= xMax; x += xTick) {
         if (Math.abs(x) < 0.001) continue;
         var pos = toScreen(x, 0);
@@ -2379,8 +2310,10 @@ function renderGraphic(jsonData) {
         ctx.stroke();
         ctx.fillText(x, pos.x, origin.y + 8);
       }
+      
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
+      
       for (var y = Math.ceil(yMin / yTick) * yTick; y <= yMax; y += yTick) {
         if (Math.abs(y) < 0.001) continue;
         var pos = toScreen(0, y);
@@ -2392,6 +2325,7 @@ function renderGraphic(jsonData) {
         ctx.stroke();
         ctx.fillText(y, origin.x - 8, pos.y);
       }
+      
       if (parsedData.points) {
         parsedData.points.forEach(function(pt) {
           var screen = toScreen(pt.x, pt.y);
@@ -2411,6 +2345,7 @@ function renderGraphic(jsonData) {
           }
         });
       }
+      
       if (parsedData.segments) {
         parsedData.segments.forEach(function(seg) {
           var from = toScreen(seg.from[0], seg.from[1]);
@@ -2423,6 +2358,7 @@ function renderGraphic(jsonData) {
           ctx.stroke();
         });
       }
+      
       if (parsedData.series) {
         parsedData.series.forEach(function(ser) {
           if ((ser.type === 'line' || ser.type === 'curve') && ser.points) {
@@ -2439,17 +2375,21 @@ function renderGraphic(jsonData) {
           }
         });
       }
+      
       if (parsedData.functions && Array.isArray(parsedData.functions)) {
         parsedData.functions.forEach(function(func) {
           var equation = func.equation || '';
           var domain = func.domain || [xMin, xMax];
           var color = func.color || '#e74c3c';
           var lineWidth = func.lineWidth || 3;
+          
           if (!equation) return;
+          
           var expr = equation.replace(/y\s*=\s*/, '');
           var samples = 500;
           var step = (domain[1] - domain[0]) / samples;
           var points = [];
+          
           for (var xVal = domain[0]; xVal <= domain[1]; xVal += step) {
             try {
               var node = math.parse(expr);
@@ -2463,10 +2403,12 @@ function renderGraphic(jsonData) {
               points.push({ x: xVal, y: NaN });
             }
           }
+          
           ctx.strokeStyle = color;
           ctx.lineWidth = lineWidth;
           ctx.lineJoin = 'round';
           ctx.lineCap = 'round';
+          
           var i = 0;
           while (i < points.length) {
             while (i < points.length && (isNaN(points[i].y) || !isFinite(points[i].y))) i++;
@@ -2486,6 +2428,7 @@ function renderGraphic(jsonData) {
           }
         });
       }
+      
       if (parsedData.labels) {
         parsedData.labels.forEach(function(label) {
           var screen = toScreen(label.x, label.y);
@@ -2496,19 +2439,22 @@ function renderGraphic(jsonData) {
           ctx.fillText(label.text, screen.x, screen.y);
         });
       }
+      
     }, 100);
     return coordHtml;
   }
-
-  // 1612 - SHAPE
+  
+  // SHAPE
   else if (parsedData.type === 'shape') {
     var shapeCanvasId = 'shape_' + Math.random().toString(36).substr(2, 9);
     var shapeHtml = '<div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #e9ecef;position:relative;">' +
       '<canvas id="' + shapeCanvasId + '" style="width:100%;height:400px;display:block;border-radius:4px;"></canvas>' +
       '</div>';
+    
     setTimeout(function() {
       var canvas = document.getElementById(shapeCanvasId);
       if (!canvas) return;
+      
       var rect = canvas.parentElement.getBoundingClientRect();
       var dpr = window.devicePixelRatio || 1;
       var w = canvas.parentElement.clientWidth || 600;
@@ -2517,8 +2463,10 @@ function renderGraphic(jsonData) {
       canvas.height = h * dpr;
       canvas.style.width = w + 'px';
       canvas.style.height = h + 'px';
+      
       var ctx = canvas.getContext('2d');
       ctx.scale(dpr, dpr);
+      
       var pts = parsedData.points || [];
       var segments = parsedData.segments || [];
       var labels = parsedData.labels || [];
@@ -2526,9 +2474,11 @@ function renderGraphic(jsonData) {
       var circles = parsedData.circles || [];
       var arcs = parsedData.arcs || [];
       var rightAngles = parsedData.rightAngles || [];
+      
       var padding = 40;
       var graphW = w - padding * 2;
       var graphH = h - padding * 2;
+      
       var allX = pts.map(function(p) { return p.x; });
       var allY = pts.map(function(p) { return p.y; });
       if (allX.length === 0) { allX = [0, 1]; allY = [0, 1]; }
@@ -2543,19 +2493,23 @@ function renderGraphic(jsonData) {
       var scale = Math.min(scaleX, scaleY);
       var cx = (minX + maxX) / 2;
       var cy = (minY + maxY) / 2;
+      
       function toScreen(px, py) {
         var sx = padding + graphW/2 + (px - cx) * scale;
         var sy = padding + graphH/2 - (py - cy) * scale;
         return { x: sx, y: sy };
       }
+      
       function getPoint(id) {
         for (var i = 0; i < pts.length; i++) {
           if (pts[i].id === id) return pts[i];
         }
         return null;
       }
+      
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, w, h);
+      
       ctx.strokeStyle = '#f0f0f0';
       ctx.lineWidth = 1;
       for (var x = Math.ceil(minX); x <= Math.floor(maxX); x++) {
@@ -2572,6 +2526,7 @@ function renderGraphic(jsonData) {
         ctx.lineTo(padding + graphW, pos.y);
         ctx.stroke();
       }
+      
       ctx.strokeStyle = '#333';
       ctx.lineWidth = 1.5;
       var origin = toScreen(0, 0);
@@ -2587,6 +2542,7 @@ function renderGraphic(jsonData) {
         ctx.lineTo(padding + graphW, origin.y);
         ctx.stroke();
       }
+      
       circles.forEach(function(c) {
         var center = getPoint(c.center);
         if (!center) {
@@ -2608,6 +2564,7 @@ function renderGraphic(jsonData) {
           ctx.fill();
         }
       });
+      
       arcs.forEach(function(a) {
         var center = getPoint(a.center);
         if (!center) return;
@@ -2621,6 +2578,7 @@ function renderGraphic(jsonData) {
         ctx.lineWidth = a.lineWidth || 2;
         ctx.stroke();
       });
+      
       segments.forEach(function(seg) {
         var fromPt = getPoint(seg.from);
         var toPt = getPoint(seg.to);
@@ -2634,6 +2592,7 @@ function renderGraphic(jsonData) {
         ctx.lineWidth = seg.lineWidth || 2;
         ctx.stroke();
       });
+      
       rightAngles.forEach(function(vertexId) {
         var v = getPoint(vertexId);
         if (!v) return;
@@ -2676,6 +2635,7 @@ function renderGraphic(jsonData) {
           }
         }
       });
+      
       angles.forEach(function(a) {
         var v = getPoint(a.vertex);
         if (!v) return;
@@ -2716,6 +2676,7 @@ function renderGraphic(jsonData) {
           }
         }
       });
+      
       pts.forEach(function(p) {
         var screen = toScreen(p.x, p.y);
         ctx.beginPath();
@@ -2726,6 +2687,7 @@ function renderGraphic(jsonData) {
         ctx.lineWidth = 2;
         ctx.stroke();
       });
+      
       labels.forEach(function(l) {
         var pos = toScreen(l.x, l.y);
         ctx.fillStyle = l.color || '#2c3e50';
@@ -2734,6 +2696,7 @@ function renderGraphic(jsonData) {
         ctx.textBaseline = l.baseline || 'middle';
         ctx.fillText(l.text, pos.x, pos.y);
       });
+      
       if (parsedData.question) {
         ctx.fillStyle = '#555';
         ctx.font = '14px sans-serif';
@@ -2741,11 +2704,12 @@ function renderGraphic(jsonData) {
         ctx.textBaseline = 'top';
         ctx.fillText(parsedData.question, w/2, 8);
       }
+      
     }, 100);
     return shapeHtml;
   }
-
-  // 1613 - HISTOGRAM
+  
+  // HISTOGRAM
   else if (parsedData.type === 'histogram' && parsedData.bins && parsedData.counts) {
     setTimeout(function() {
       var ctx = document.getElementById(chartId);
@@ -2754,6 +2718,7 @@ function renderGraphic(jsonData) {
         window._chartInstances[chartId].destroy();
       }
       if (!window._chartInstances) window._chartInstances = {};
+      
       var cc = {
         type: 'bar',
         data: {
@@ -2779,6 +2744,7 @@ function renderGraphic(jsonData) {
           }
         }
       };
+      
       var canvas = document.getElementById(chartId);
       if (canvas && cc) {
         canvas.parentElement.style.height = '400px';
@@ -2787,8 +2753,8 @@ function renderGraphic(jsonData) {
     }, 100);
     return html;
   }
-
-  // 1614 - DOT-PLOT
+  
+  // DOT-PLOT
   else if (parsedData.type === 'dot-plot' && parsedData.data) {
     setTimeout(function() {
       var ctx = document.getElementById(chartId);
@@ -2797,8 +2763,10 @@ function renderGraphic(jsonData) {
         window._chartInstances[chartId].destroy();
       }
       if (!window._chartInstances) window._chartInstances = {};
+      
       var labels = parsedData.data.map(function(d) { return d.value; });
       var values = parsedData.data.map(function(d) { return d.count; });
+      
       var cc = {
         type: 'bar',
         data: {
@@ -2825,6 +2793,7 @@ function renderGraphic(jsonData) {
           }
         }
       };
+      
       var canvas = document.getElementById(chartId);
       if (canvas && cc) {
         canvas.parentElement.style.height = '400px';
@@ -2833,8 +2802,8 @@ function renderGraphic(jsonData) {
     }, 100);
     return html;
   }
-
-  // 1699 - UNSUPPORTED
+  
+  // UNSUPPORTED
   else {
     return '<div style="padding:10px;text-align:center;color:#999;border:1px dashed #ddd;border-radius:8px;margin:15px 0;">' +
       '<span style="font-size:20px;">📊</span>' +
@@ -2844,10 +2813,10 @@ function renderGraphic(jsonData) {
 }
 
 // ============================================================
-// 9900 - 내보내기 및 전역 노출
+// 내보내기 및 전역 노출
 // ============================================================
 
-// 1. 전역(window) 노출 (기존 방식 유지)
+// 1. 전역(window) 노출
 window.initialize = initialize;
 window.startQuizWithNumber = startQuizWithNumber;
 window.renderGraphic = renderGraphic;
@@ -2864,6 +2833,9 @@ window.saveProgress = saveProgress;
 window.loadProgress = loadProgress;
 window.clearProgress = clearProgress;
 
+// ★★★★★ attachEvents를 전역에 노출 (이 부분이 오늘 오류 해결의 핵심) ★★★★★
+window.attachEvents = attachEvents;
+
 window.LANG = LANG;
 window.DOM = DOM;
 
@@ -2875,10 +2847,10 @@ window.isReviewMode = isReviewMode;
 window.currentStartNumber = currentStartNumber;
 window.TOTAL_QUESTIONS = TOTAL_QUESTIONS;
 
-// ★★★★★ 2. ES Module export 추가 (HTML import 구문 대응) ★★★★★
-export {
-  initialize,
-  startQuizWithNumber,
+// 2. ES Module export 추가
+export { 
+  initialize, 
+  startQuizWithNumber, 
   renderGraphic,
   renderCurrentQuestion,
   showExplanation,
@@ -2897,4 +2869,3 @@ export {
 console.log("✅ Full main.js loaded with all functions!");
 console.log("✅ MathJax available:", typeof MathJax !== 'undefined');
 console.log("✅ Exports available: initialize, startQuizWithNumber, renderGraphic, etc.");
-
