@@ -88,7 +88,7 @@ var LANG = {
 // ========================================================================
 // BLOCK 0120: 시스템 상수 (원본 B002)
 // ========================================================================
-var API_URL = "https://script.google.com/macros/s/AKfycbzVOpe2-tVbS8GsV2gZkh5BViY_Msa2yUgzaIrFOWU65U2JXS-MvbG0GrYyNtnSfsrC5Q/exec";
+var API_URL = "https://script.google.com/macros/s/AKfycbw0WCLy_UfH5ZadtWq5TPEH7zUb-iTfcLMPVczbCUJptUKWW4Ybs8z7s9bGHynfoV0bSQ/exec";
 var ORIGINAL_API_URL = API_URL;
 var DATA_SHEET = 'sat';
 var CURRENT_SUBJECT = ''; // sat 시트 SUBJECT가 비어 있어 필터하지 않음
