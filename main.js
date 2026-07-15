@@ -88,12 +88,10 @@ var LANG = {
 // ========================================================================
 // BLOCK 0120: 시스템 상수 (원본 B002)
 // ========================================================================
-var API_URL = "https://script.google.com/macros/s/AKfycbw0WCLy_UfH5ZadtWq5TPEH7zUb-iTfcLMPVczbCUJptUKWW4Ybs8z7s9bGHynfoV0bSQ/exec";
+var API_URL = "https://script.google.com/macros/s/AKfycbwLVA2OJ3H9RAKgzP3NvCWkDCGyRIAhxT6svLU6bvUT-oq1dxrFQSJQ31vb6z7Kyxnk/exec";
 var ORIGINAL_API_URL = API_URL;
 var DATA_SHEET = 'sat';
 var CURRENT_SUBJECT = ''; // sat 시트 SUBJECT가 비어 있어 필터하지 않음
-var CURRENT_SUBJECT_NAME = 'Digital SAT';
-var subjectConfig = null;
 var STORAGE_KEY = 'quiz_progress_main_v8_0B';
 var TOTAL_CACHE_KEY = 'quiz_total_questions_v8_0B_sat';
 var LANGUAGE_STORAGE_KEY = 'quiz_language_v7';
@@ -120,29 +118,6 @@ var currentStartNumber = 1;
 var autoSaveInterval = null;
 var chartInstances = {};
 var DOM = {};
-
-function applySelectedSubjectConfig() {
-  try {
-    subjectConfig = JSON.parse(localStorage.getItem('quiz_current_subject_v1') || 'null');
-  } catch (e) { subjectConfig = null; }
-  if (!subjectConfig || !subjectConfig.CODE || !subjectConfig.SHEET) return false;
-  CURRENT_SUBJECT = String(subjectConfig.CODE).trim().toUpperCase();
-  CURRENT_SUBJECT_NAME = String(subjectConfig.NAME || CURRENT_SUBJECT).trim();
-  DATA_SHEET = String(subjectConfig.SHEET).trim().toLowerCase();
-  QUESTIONS_PER_SET = Math.max(1, parseInt(subjectConfig.SET_SIZE, 10) || 120);
-  TOTAL_QUESTIONS = Math.max(0, parseInt(subjectConfig.QUESTION_COUNT, 10) || 0);
-  var keyPart = CURRENT_SUBJECT.replace(/[^A-Z0-9_-]/g, '_');
-  STORAGE_KEY = 'quiz_progress_main_v8_0C_' + keyPart;
-  TOTAL_CACHE_KEY = 'quiz_total_questions_v8_0C_' + keyPart;
-  return true;
-}
-
-function updateSubjectHeader() {
-  var title = document.querySelector('.sat-title');
-  if (title) title.innerHTML = CURRENT_SUBJECT_NAME + ' <span class="set-separator">·</span> Set <span id="currentSetTitle">1</span>';
-  var subtitle = document.querySelector('.sat-sub');
-  if (subtitle) subtitle.textContent = String(subjectConfig && subjectConfig.CATEGORY || 'QUIZ');
-}
 
 // ========================================================================
 // BLOCK 0200: CDN 폴백 체계
@@ -1076,20 +1051,6 @@ function updateSetSelector() {
 // BLOCK 0720: detectTotalQuestions (타임아웃 + fallback)
 // ========================================================================
 async function detectTotalQuestions() {
-    try {
-        const selectedSubject = JSON.parse(localStorage.getItem('quiz_current_subject_v1') || 'null');
-        const memberQuestionCount = Math.max(0, parseInt(selectedSubject && selectedSubject.QUESTION_COUNT, 10) || 0);
-        if (memberQuestionCount > 0) {
-            TOTAL_QUESTIONS = memberQuestionCount;
-            localStorage.setItem(TOTAL_CACHE_KEY, String(TOTAL_QUESTIONS));
-            localStorage.setItem(TOTAL_CACHE_KEY + '_time', String(Date.now()));
-            console.log('✅ Using QUESTION_COUNT from member subjects:', TOTAL_QUESTIONS);
-            updateSplash(60, 'Preparing data...');
-            return TOTAL_QUESTIONS;
-        }
-    } catch (e) {
-        console.warn('⚠️ Invalid member subject QUESTION_COUNT; using existing total lookup.', e);
-    }
     const cached = localStorage.getItem(TOTAL_CACHE_KEY);
     const cachedTime = localStorage.getItem(TOTAL_CACHE_KEY + '_time');
     const now = Date.now();
@@ -1114,7 +1075,7 @@ async function detectTotalQuestions() {
         const totalParams = new URLSearchParams();
         totalParams.set('total', 'true');
         totalParams.set('_', String(Date.now()));
-        totalParams.set('sheet', DATA_SHEET);
+        if (CURRENT_SUBJECT) totalParams.set('subject', CURRENT_SUBJECT);
         const url = ORIGINAL_API_URL + '?' + totalParams.toString();
         console.log('📡 Requesting total (direct):', url);
         
@@ -1183,7 +1144,7 @@ async function load50Questions(uiStartNumber, retryCount = 0) {
         requestParams.set('start', String(uiStartNumber));
         requestParams.set('limit', String(QUESTIONS_PER_SET));
         requestParams.set('_', String(Date.now()));
-        requestParams.set('sheet', DATA_SHEET);
+        if (CURRENT_SUBJECT) requestParams.set('subject', CURRENT_SUBJECT);
         var url = ORIGINAL_API_URL + '?' + requestParams.toString();
         console.log('📡 Requesting questions (direct):', url);
         
@@ -1198,9 +1159,6 @@ async function load50Questions(uiStartNumber, retryCount = 0) {
         }
         
         var data = JSON.parse(text);
-        if (data && typeof data === 'object' && String(data.status || '').toLowerCase() === 'error') {
-            throw new Error(data.message || 'Quiz GAS returned an error');
-        }
         console.log('📡 Response type:', typeof data);
         console.log('📡 Is array?', Array.isArray(data));
         
@@ -4972,10 +4930,8 @@ async function startQuizWithNumber(uiStartNumber) {
 // ========================================================================
 function initialize() {
   console.log('🔧 initialize() started');
-
-  applySelectedSubjectConfig();
+  
   initDOM();
-  updateSubjectHeader();
   initLanguageSelector();
   initModeSelector();
   initTimer();
