@@ -1198,6 +1198,9 @@ async function load50Questions(uiStartNumber, retryCount = 0) {
         }
         
         var data = JSON.parse(text);
+        if (data && typeof data === 'object' && String(data.status || '').toLowerCase() === 'error') {
+            throw new Error(data.message || 'Quiz GAS returned an error');
+        }
         console.log('📡 Response type:', typeof data);
         console.log('📡 Is array?', Array.isArray(data));
         
