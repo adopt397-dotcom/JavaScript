@@ -367,6 +367,7 @@
                 if (data.success) {
                     const user = data.user || { name: data.name || '', email };
                     const subjects = Array.isArray(data.subjects) ? data.subjects : [];
+                    localStorage.removeItem('quiz_current_subject_v1');
                     localStorage.setItem('quiz_current_user_v1', JSON.stringify(user));
                     localStorage.setItem('quiz_available_subjects_v1', JSON.stringify(subjects));
                     showResult('loginResult', '✅ Welcome, ' + (user.name || email) + '!', true);

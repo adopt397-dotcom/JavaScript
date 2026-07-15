@@ -144,7 +144,7 @@ function applySubjectConfig() {
     subjectConfig = null;
   }
   if (!subjectConfig || !subjectConfig.CODE || !subjectConfig.SHEET) {
-    window.location.replace('./login.html');
+    window.location.replace('./login.html?v=8.0C9');
     return false;
   }
   currentSubject = String(subjectConfig.CODE).trim().toUpperCase();
