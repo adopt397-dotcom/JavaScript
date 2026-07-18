@@ -96,7 +96,8 @@ var LANG = {
 // ========================================================================
 // BLOCK 0120: 시스템 상수 (원본 B002)
 // ========================================================================
-var API_URL = "https://script.google.com/macros/s/AKfycbz8rVDhLAgQYTlP-wVWVOdGAc7wTUvT_uVAXTNgBwcFz3FR-urNvoaswO3BVCc4BvsC/exec";
+var API_URL = "https://script.google.com/macros/s/AKfycbxInE43RZYL86BMgiK1QyY6xRehQlMDu_Qgibhhqiga1vmjGrVpMWRe7-sEKWW3O7sLHw/exec";
+
 var ORIGINAL_API_URL = API_URL;
 // BLOCK 1000: Multi Subject Global State
 var currentUser = null;
