@@ -9,7 +9,7 @@
 // ========================================================================
 // BLOCK 0000: 시스템 메타 정보
 // ========================================================================
-// 버전: 8.0C (SAT Tutor context integration)
+// 버전: 8.0D (Trial / Paid / Admin Auth)
 // 날짜: 2026-07-12
 // 설명: 표준 다국어 스키마 + 언어 전환 + 기존 그래픽/퀴즈 엔진 통합
 // 표준 열: N, SUBJECT, Q_EN, Q_KO, P_EN, P_KO, 1_EN~4_KO, A, E_EN, E_KO, G, D,
@@ -96,7 +96,7 @@ var LANG = {
 // ========================================================================
 // BLOCK 0120: 시스템 상수 (원본 B002)
 // ========================================================================
-var API_URL = "https://script.google.com/macros/s/AKfycbwoYQ3_wP1tFBaphY6OxCjrGdks1NRfA4vp3Iz63cpTXNQNEs_mCJElyc5qLn_eT7dG/exec";
+var API_URL = "https://script.google.com/macros/s/AKfycbz8rVDhLAgQYTlP-wVWVOdGAc7wTUvT_uVAXTNgBwcFz3FR-urNvoaswO3BVCc4BvsC/exec";
 var ORIGINAL_API_URL = API_URL;
 // BLOCK 1000: Multi Subject Global State
 var currentUser = null;
@@ -106,7 +106,11 @@ var availableSubjects = [];
 var DATA_SHEET = 'sat';
 var CURRENT_SUBJECT = '';
 var STORAGE_KEY = 'quiz_progress_main_v8_0C_sat';
-var TOTAL_CACHE_KEY = 'quiz_total_questions_v8_0C_sat';
+var TOTAL_CACHE_KEY = 'quiz_total_questions_v8_0D_sat';
+var IS_TRIAL_USER = false;
+var IS_ADMIN_USER = false;
+var TRIAL_START = 1;
+var TRIAL_LIMIT = 20;
 var LANGUAGE_STORAGE_KEY = 'quiz_language_v7';
 var MODE_STORAGE_KEY = 'quiz_mode_v8_0B';
 var SUPPORTED_MODES = ['learn', 'study', 'exam'];
@@ -132,6 +136,108 @@ var autoSaveInterval = null;
 var chartInstances = {};
 var DOM = {};
 
+// BLOCK 2000: Login/Auth validation and role policy
+function normalizeRoleValue(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function hasValidCurrentUser(user) {
+  return !!(user && typeof user === 'object' &&
+    String(user.email || '').trim() && String(user.session_token || '').trim());
+}
+
+function isAdminUser(user) {
+  return normalizeRoleValue(user && user.account_type) === 'admin';
+}
+
+function isTrialUser(user) {
+  if (!user || isAdminUser(user)) return false;
+  return user.is_trial === true || normalizeRoleValue(user.payment_status) === 'p';
+}
+
+function clearAuthAndRedirect(reason) {
+  localStorage.removeItem('quiz_current_user_v1');
+  localStorage.removeItem('quiz_available_subjects_v1');
+  localStorage.removeItem('quiz_current_subject_v1');
+  var rawReason = String(reason || '').replace(/[^A-Z0-9_\-]/gi, '').slice(0, 40);
+  var authReason = rawReason.indexOf('AUTH_') === 0 ? 'LOGIN_REQUIRED' : rawReason;
+  window.location.replace('./login.html?v=8.0D' + (authReason ? '&auth_error=' + encodeURIComponent(authReason) : ''));
+}
+
+function applyUserRolePolicy() {
+  IS_ADMIN_USER = isAdminUser(currentUser);
+  IS_TRIAL_USER = isTrialUser(currentUser);
+  TRIAL_START = Math.max(1, parseInt(currentUser && currentUser.trial_start, 10) || 1);
+  TRIAL_LIMIT = Math.max(1, parseInt(currentUser && currentUser.trial_limit, 10) || 20);
+  document.documentElement.classList.toggle('admin-user', IS_ADMIN_USER);
+  document.documentElement.classList.toggle('trial-user', IS_TRIAL_USER);
+}
+
+function applyCopyProtectionPolicy() {
+  if (window.__gongbooCopyProtectionInstalled) return;
+  window.__gongbooCopyProtectionInstalled = true;
+  ['copy', 'cut', 'paste', 'contextmenu', 'selectstart'].forEach(function(type) {
+    document.addEventListener(type, function(event) {
+      if (IS_ADMIN_USER) return;
+      var tag = event.target && event.target.tagName;
+      if ((type === 'paste' || type === 'cut') && (tag === 'INPUT' || tag === 'TEXTAREA')) return;
+      event.preventDefault();
+    }, true);
+  });
+  document.addEventListener('keydown', function(event) {
+    if (IS_ADMIN_USER) return;
+    var key = String(event.key || '').toUpperCase();
+    var ctrlOrCommand = event.ctrlKey || event.metaKey;
+    var blocked = key === 'F12' ||
+      (ctrlOrCommand && event.shiftKey && ['I', 'J', 'C'].indexOf(key) !== -1) ||
+      (ctrlOrCommand && ['U', 'S', 'P'].indexOf(key) !== -1);
+    if (!blocked) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof showToast === 'function') showToast('This function is restricted.', 'warn');
+  }, true);
+}
+
+function getSessionToken_() {
+  return String(currentUser && currentUser.session_token || '').trim();
+}
+
+async function fetchQuizApi_(params, signal) {
+  var token = getSessionToken_();
+  if (!token) {
+    clearAuthAndRedirect('TOKEN_MISSING');
+    throw new Error('Please log in again.');
+  }
+  var body = {};
+  params.forEach(function(value, key) { body[key] = value; });
+  body.session_token = token;
+  return fetch(ORIGINAL_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body),
+    signal: signal
+  });
+}
+
+function throwQuizApiError_(data, fallbackMessage) {
+  var code = String(data && data.code || '');
+  if (code.indexOf('AUTH_') === 0) {
+    clearAuthAndRedirect(code);
+  }
+  throw new Error(data && data.message ? data.message : fallbackMessage);
+}
+
+function isTrialProgressSafe(saved) {
+  if (!IS_TRIAL_USER) return true;
+  if (!saved || !Array.isArray(saved.currentQuestions)) return false;
+  if ((parseInt(saved.currentStartNumber, 10) || 1) !== TRIAL_START) return false;
+  if (saved.currentQuestions.length > TRIAL_LIMIT) return false;
+  return saved.currentQuestions.every(function(q, index) {
+    var n = parseInt(q && (q.originalNumber || q.N || q.n), 10);
+    return isNaN(n) ? index < TRIAL_LIMIT : n >= TRIAL_START && n < TRIAL_START + TRIAL_LIMIT;
+  });
+}
+
 // BLOCK 3000: Subject Management
 function applySubjectConfig() {
   try {
@@ -143,21 +249,15 @@ function applySubjectConfig() {
     availableSubjects = [];
     subjectConfig = null;
   }
+  if (!hasValidCurrentUser(currentUser)) {
+    clearAuthAndRedirect('LOGIN_DATA_MISSING');
+    return false;
+  }
+  applyUserRolePolicy();
+  applyCopyProtectionPolicy();
   if (!subjectConfig || !subjectConfig.CODE || !subjectConfig.SHEET) {
-    var isAdminPage = /(?:^|\/)admin\.html$/i.test(window.location.pathname);
-    if (isAdminPage) {
-      subjectConfig = {
-        CODE: 'SAT',
-        NAME: 'Digital SAT',
-        CATEGORY: 'TEST',
-        SHEET: 'sat',
-        SET_SIZE: 120,
-        QUESTION_COUNT: 1440
-      };
-    } else {
-      window.location.replace('./login.html?v=8.0C12-GONGBOO1');
-      return false;
-    }
+    clearAuthAndRedirect('SUBJECT_DATA_MISSING');
+    return false;
   }
   currentSubject = String(subjectConfig.CODE).trim().toUpperCase();
   CURRENT_SUBJECT = currentSubject;
@@ -169,8 +269,8 @@ function applySubjectConfig() {
   QUESTIONS_PER_SET = Math.max(1, parseInt(subjectConfig.SET_SIZE, 10) || 120);
   TOTAL_QUESTIONS = Math.max(0, parseInt(subjectConfig.QUESTION_COUNT, 10) || 0);
   var keyPart = currentSubject.replace(/[^A-Z0-9_-]/g, '_');
-  STORAGE_KEY = 'quiz_progress_main_v8_0C_' + keyPart;
-  TOTAL_CACHE_KEY = 'quiz_total_questions_v8_0C_' + keyPart;
+  STORAGE_KEY = 'quiz_progress_main_v8_0D_' + keyPart;
+  TOTAL_CACHE_KEY = 'quiz_total_questions_v8_0D_' + keyPart;
   window.currentUser = currentUser;
   window.currentSubject = currentSubject;
   window.subjectConfig = subjectConfig;
@@ -182,8 +282,8 @@ function applySubjectConfig() {
 function updateSubjectTitle(setNumber) {
   var title = document.querySelector('.sat-title');
   var subtitle = document.querySelector('.sat-sub');
-  if (title) title.textContent = String(subjectConfig.NAME || currentSubject) + ' · Set ' + (setNumber || 1);
-  if (subtitle) subtitle.textContent = String(subjectConfig.CATEGORY || 'QUIZ');
+  if (title) title.textContent = String(subjectConfig.NAME || currentSubject) + (IS_TRIAL_USER ? ' · SAMPLE' : ' · Set ' + (setNumber || 1));
+  if (subtitle) subtitle.textContent = IS_TRIAL_USER ? 'Questions 1-20' : String(subjectConfig.CATEGORY || 'QUIZ');
 }
 
 // ========================================================================
@@ -497,6 +597,7 @@ DOM.startQuizBtn = null;
 DOM.maxNumberSpan = null;
 DOM.progressText = null;
 DOM.quizProgressBar = null;
+DOM.accountIdentity = null;
 DOM.questionContainer = null;
 DOM.explanationBox = null;
 DOM.explanationText = null;
@@ -565,6 +666,7 @@ function initDOM() {
     DOM.maxNumberSpan = document.getElementById('maxNumber');
     DOM.progressText = document.getElementById('progressText');
     DOM.quizProgressBar = document.getElementById('quizProgressBar');
+    DOM.accountIdentity = document.getElementById('accountIdentity');
     DOM.questionContainer = document.getElementById('questionContainer');
     DOM.explanationBox = document.getElementById('explanationBox');
     DOM.explanationText = document.getElementById('explanationText');
@@ -1117,14 +1219,22 @@ function updateSetSelector() {
   while (setSelector.options.length > 0) {
     setSelector.remove(0);
   }
-  var totalQuestions = TOTAL_QUESTIONS > 0 ? TOTAL_QUESTIONS : 360;
+  var configuredTotal = Math.max(0, parseInt(subjectConfig && subjectConfig.QUESTION_COUNT, 10) || 0);
+  var totalQuestions = configuredTotal || (TOTAL_QUESTIONS > 0 ? TOTAL_QUESTIONS : 360);
   var totalSets = Math.ceil(totalQuestions / QUESTIONS_PER_SET);
+  if (IS_TRIAL_USER) {
+    var sampleOption = document.createElement('option');
+    sampleOption.value = 'sample';
+    sampleOption.textContent = 'SAMPLE (Questions 1-20)';
+    setSelector.appendChild(sampleOption);
+  }
   for (var i = 1; i <= totalSets; i++) {
     var start = (i - 1) * QUESTIONS_PER_SET + 1;
     var end = Math.min(i * QUESTIONS_PER_SET, totalQuestions);
     var option = document.createElement('option');
     option.value = i;
-    option.textContent = 'Set ' + i + ' (Questions ' + start + '-' + end + ')';
+    option.textContent = (IS_TRIAL_USER ? '🔒 ' : '') + 'Set ' + i + ' (Questions ' + start + '-' + end + ')';
+    option.disabled = IS_TRIAL_USER;
     setSelector.appendChild(option);
   }
   var maxStartNumber = Math.max(1, totalQuestions - QUESTIONS_PER_SET + 1);
@@ -1136,11 +1246,23 @@ function updateSetSelector() {
     DOM.startNumberInput.max = maxStartNumber;
   }
   if (setSelector.options.length > 0) {
-    setSelector.value = '1';
+    setSelector.value = IS_TRIAL_USER ? 'sample' : '1';
   }
   if (DOM.startNumberInput) {
     DOM.startNumberInput.value = '1';
   }
+  var setHint = document.querySelector('.card-new .card-hint');
+  if (setHint) {
+    setHint.textContent = IS_TRIAL_USER
+      ? 'SAMPLE is available now. Locked sets require account approval.'
+      : 'Select a set or enter a number';
+  }
+}
+
+function renderAccountIdentity_() {
+  if (!DOM.accountIdentity) return;
+  var email = String(currentUser && currentUser.email || '').trim();
+  DOM.accountIdentity.textContent = email ? 'Account: ' + email : '';
 }
 
 // ========================================================================
@@ -1173,10 +1295,9 @@ async function detectTotalQuestions() {
         totalParams.set('total', 'true');
         totalParams.set('_', String(Date.now()));
         totalParams.set('sheet', DATA_SHEET);
-        const url = ORIGINAL_API_URL + '?' + totalParams.toString();
-        console.log('📡 Requesting total (direct):', url);
+        console.log('📡 Requesting authorized question total');
         
-        const response = await fetch(url, { signal: controller.signal });
+        const response = await fetchQuizApi_(totalParams, controller.signal);
         clearTimeout(timeoutId);
         
         if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -1187,7 +1308,9 @@ async function detectTotalQuestions() {
         }
         
         const data = JSON.parse(text);
-        if (data && (data.status === 'error' || data.success === false)) throw new Error(data.message || 'Failed to load question total');
+        if (data && (data.status === 'error' || data.success === false)) {
+            throwQuizApiError_(data, 'Failed to load question total');
+        }
         const total = data.total || 0;
         
         if (total > 0) {
@@ -1235,14 +1358,21 @@ async function load50Questions(uiStartNumber, retryCount = 0) {
     
     try {
         var requestParams = new URLSearchParams();
-        requestParams.set('start', String(uiStartNumber));
-        requestParams.set('limit', String(QUESTIONS_PER_SET));
+        var requestedStart = IS_TRIAL_USER ? TRIAL_START : uiStartNumber;
+        var requestedLimit = IS_TRIAL_USER ? TRIAL_LIMIT : QUESTIONS_PER_SET;
+        if (IS_TRIAL_USER) {
+          uiStartNumber = TRIAL_START;
+          currentStartNumber = TRIAL_START;
+          if (DOM.startNumberInput) DOM.startNumberInput.value = String(TRIAL_START);
+          if (DOM.setSelector) DOM.setSelector.value = 'sample';
+        }
+        requestParams.set('start', String(requestedStart));
+        requestParams.set('limit', String(requestedLimit));
         requestParams.set('_', String(Date.now()));
         requestParams.set('sheet', DATA_SHEET);
-        var url = ORIGINAL_API_URL + '?' + requestParams.toString();
-        console.log('📡 Requesting questions (direct):', url);
+        console.log('📡 Requesting authorized questions');
         
-        var response = await fetch(url, { signal: currentAbortController.signal });
+        var response = await fetchQuizApi_(requestParams, currentAbortController.signal);
         clearTimeout(timeoutId);
         
         if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -1253,7 +1383,9 @@ async function load50Questions(uiStartNumber, retryCount = 0) {
         }
         
         var data = JSON.parse(text);
-        if (data && (data.status === 'error' || data.success === false)) throw new Error(data.message || 'Failed to load questions');
+        if (data && (data.status === 'error' || data.success === false)) {
+            throwQuizApiError_(data, 'Failed to load questions');
+        }
         console.log('📡 Response type:', typeof data);
         console.log('📡 Is array?', Array.isArray(data));
         
@@ -5085,6 +5217,11 @@ function resumeProgress(saved) {
 // BLOCK 1500: 퀴즈 시작 (원본 B013 + 백그라운드 로딩)
 // ========================================================================
 async function startQuizWithNumber(uiStartNumber) {
+  if (IS_TRIAL_USER) {
+    uiStartNumber = TRIAL_START;
+    if (DOM.startNumberInput) DOM.startNumberInput.value = String(TRIAL_START);
+    if (DOM.setSelector) DOM.setSelector.value = 'sample';
+  }
   if (isNaN(uiStartNumber) || uiStartNumber < 1) uiStartNumber = 1;
   
   if (uiStartNumber > TOTAL_QUESTIONS) {
@@ -5110,7 +5247,7 @@ async function startQuizWithNumber(uiStartNumber) {
     }
   }
   
-  var overlay = showLoadingOverlay('Loading ' + QUESTIONS_PER_SET + ' questions from ' + startNum + '...');
+  var overlay = showLoadingOverlay('Loading ' + (IS_TRIAL_USER ? TRIAL_LIMIT : QUESTIONS_PER_SET) + ' questions from ' + startNum + '...');
   try {
     var questions = await load50Questions(startNum);
     if (questions.length === 0) throw new Error('No question data received');
@@ -5160,6 +5297,7 @@ function initialize() {
   console.log('🔧 initialize() started');
   
   initDOM();
+  renderAccountIdentity_();
   updateSubjectTitle(1);
   initLanguageSelector();
   initModeSelector();
@@ -5177,9 +5315,10 @@ function initialize() {
         localStorage.setItem(TOTAL_CACHE_KEY, String(TOTAL_QUESTIONS));
       }
       
+      if (IS_TRIAL_USER) TOTAL_QUESTIONS = Math.min(TOTAL_QUESTIONS || TRIAL_LIMIT, TRIAL_LIMIT);
       updateSetSelector();
       
-      updateSplash(60, 'Preparing data...');
+      updateSplash(60, IS_TRIAL_USER ? 'Preparing FREE TRIAL questions 1–20...' : 'Preparing data...');
       
       var maxStartNumber = TOTAL_QUESTIONS;
       console.log('📊 Total questions: ' + TOTAL_QUESTIONS);
@@ -5187,13 +5326,18 @@ function initialize() {
       if (DOM.maxNumberSpan) DOM.maxNumberSpan.style.display = 'none';
       if (DOM.maxNumberDisplay) DOM.maxNumberDisplay.style.display = 'none';
       
-      DOM.startNumberInput.placeholder = '1-' + TOTAL_QUESTIONS;
-      DOM.startNumberInput.max = TOTAL_QUESTIONS;
+      DOM.startNumberInput.placeholder = IS_TRIAL_USER ? 'FREE TRIAL: 1' : '1-' + TOTAL_QUESTIONS;
+      DOM.startNumberInput.max = IS_TRIAL_USER ? TRIAL_START : TOTAL_QUESTIONS;
       DOM.startNumberInput.min = 1;
+      if (IS_TRIAL_USER) {
+        DOM.startNumberInput.value = String(TRIAL_START);
+        DOM.startNumberInput.readOnly = true;
+      }
       
       if (DOM.setSelector) {
         DOM.setSelector.addEventListener('change', function() {
-          var setNum = parseInt(this.value);
+          var setNum = IS_TRIAL_USER ? 1 : parseInt(this.value);
+          if (IS_TRIAL_USER) this.value = 'sample';
           if (!isNaN(setNum) && setNum >= 1) {
             var startNum = (setNum - 1) * QUESTIONS_PER_SET + 1;
             DOM.startNumberInput.value = startNum;
@@ -5202,12 +5346,16 @@ function initialize() {
           }
         });
         if (DOM.setSelector.options.length > 0) {
-          DOM.setSelector.value = '1';
+          DOM.setSelector.value = IS_TRIAL_USER ? 'sample' : '1';
           DOM.startNumberInput.value = '';
         }
       }
       
       var saved = loadProgress();
+      if (IS_TRIAL_USER && saved && !isTrialProgressSafe(saved)) {
+        clearProgress();
+        saved = null;
+      }
       if (saved && saved.currentQuestions && saved.currentQuestions.length > 0) {
         var answered = saved.userAnswers.filter(function(a) { return a !== null && a !== -1; }).length;
         var timeStr = new Date(saved.timestamp).toLocaleString();
@@ -5369,6 +5517,7 @@ window.currentSubject = currentSubject;
 window.subjectConfig = subjectConfig;
 window.availableSubjects = availableSubjects;
 window.applySubjectConfig = applySubjectConfig;
+window.gongbooLogout = clearAuthAndRedirect;
 
 // ★★★★★ 유틸리티 함수 전역 노출 ★★★★★
 window.escapeHtml = escapeHtml;
@@ -5429,7 +5578,7 @@ export {
 // ========================================================================
 // BLOCK 9999: 시스템 시작 로그
 // ========================================================================
-console.log("✅ SAT Digital Quiz System v8.0B Modes Loaded!");
+console.log("✅ GongBoo Learning System v8.0D Trial / Paid / Admin Auth Loaded!");
 console.log("✅ Chart Engine v6.2: line series.data/categories + axis min/max/tick/suffix 지원");
 console.log("📋 원본 B001~B015 완전 복구 + v4.0.0 최적화 병합");
 console.log("✅ renderGraphic() 800+ 줄 완전 복구");
